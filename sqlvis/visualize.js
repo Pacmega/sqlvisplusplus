@@ -43697,6 +43697,113 @@ THE SOFTWARE.
 
 
 
+function determineKeywordOrder(query, keywordsToFind) {
+  var keywordArray = [];
+  var indexArray = [];
+
+  for (var index in keywordsToFind) {
+    var keyword = keywordsToFind[index];
+    var foundAtIndex = query.indexOf(keyword);
+
+    if (foundAtIndex !== -1) {
+      // Keyword exists in query, appears at char index foundAtIndex
+      keywordArray.push(keyword);
+      indexArray.push(foundAtIndex);
+    }
+  }
+
+  return {foundKeywords: keywordArray, foundIndices: indexArray}
+}
+
+function attemptOrderingFix(query) {
+  // TODO: intentionally neglecting UNION for now, because it
+  //   makes things more complicated.
+  // TODO: need to add the different join types in a way that just 'join'
+  //   doesn't trigger on every single one.
+  // TODO: multiple appearances of the same keyword is not handled well.
+  
+  // This is also the order in which the keywords should appear.
+  const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
+                          'where', 'group by', 'having', 'order by'];
+
+  var lowercaseQuery = query.toLowerCase();
+  var keywordStatus = determineKeywordOrder(lowercaseQuery, keywordsToFind);
+
+  var sortedIndices = Array.from(keywordStatus.foundIndices).sort((a, b) => {return a - b});
+
+  // for (let i in keywordStatus.foundIndices) {
+  //   var startOfExpectedKeyword = keywordStatus.foundIndices[i];
+  //   var startOfRealKeyword = sortedIndices[i];
+
+  //   if (startOfExpectedKeyword !== startOfRealKeyword) {
+  //     // At least one keyword appears out of order.
+      
+  //     // sortedIndex is where this keyword is expected,
+  //     //   but it is actually here:
+  //     // (keywordStatus lists the found keywords in their expected order)
+  //     var shouldBeAtIndex = keywordStatus.foundIndices.indexOf(startOfRealKeyword);
+  //     var misplacedKeyword = keywordStatus.foundKeywords[shouldBeAtIndex];
+
+  //     var sliceFrom = startOfRealKeyword;
+  //     var sliceTo = sortedIndices[i+1];
+  //     var partToMove = query.slice(sliceFrom, sliceTo);
+
+  //     var shouldStartAt = keywordStatus.foundIndices.slice(shouldBeAtIndex).reduce((a,b) => {return a+b});
+
+  //     var beforeError = query.slice(0, sliceFrom);
+  //     var afterError = query.slice(sliceTo);
+
+  //     console.log('Keyword misplaced: ' + misplacedKeyword);
+  //     return;        
+  //   }
+
+  var contentsPerKeyword = {};
+  var outOfOrderKeywordCounter = 0;
+
+  for (let i = 0; i < sortedIndices.length; i++) {
+    var keywordStartsAt = sortedIndices[i];
+    // At the last index normal nextKeyword behavior goes OOB, so avoid that.
+    var nextKeywordStartsAt = (i < sortedIndices.length - 1 ? sortedIndices[i+1] : query.length + 1);
+
+    var shouldBeAtIndex = keywordStatus.foundIndices.indexOf(keywordStartsAt);
+    var thisIsKeyword = keywordStatus.foundKeywords[shouldBeAtIndex];
+    
+    // This is used for query reconstruction.
+    var keywordContents = query.slice(keywordStartsAt, nextKeywordStartsAt - 1);
+    contentsPerKeyword[thisIsKeyword] = keywordContents;
+
+    // Check if this keyword appears earlier than it should, by checking if this
+    //   keyword appears before the next expected keyword.
+    // TODO: known issue: if a keyword is later than expected, e.g. FROM at the
+    //   end of a query, this approach instead calls everything before it early.
+    var expectedKeywordStartsAt = keywordStatus.foundIndices[i - outOfOrderKeywordCounter];
+    if (keywordStartsAt < expectedKeywordStartsAt) {
+      outOfOrderKeywordCounter++;
+      console.log('Earlier than expected: ' + thisIsKeyword);
+    }
+  }
+
+  var rebuiltQuery = []
+
+  // foundKeywords describes which keywords are in the query,
+  // and contentsPerKeyword shows the contents for said keyword.
+  // Together, these two can be used to rebuild in the right order.
+  for (let i = 0; i < keywordStatus.foundKeywords.length; i++) {
+    var keyword = keywordStatus.foundKeywords[i];
+    rebuiltQuery.push(contentsPerKeyword[keyword]);
+  }
+
+  rebuiltQuery = rebuiltQuery.join(' ');
+
+  // TODO: keep & return changelog of adjustments
+
+  // TODO: GROUP BY -> WHERE with agg = where should be having
+  // TODO: as described in thesis: keyword immediately followed by group by -> group_by_[column]
+
+  return rebuiltQuery;
+}
+
+
 var levelsWithErrors = [];
 function visualize(query, schema, container, d3) {
   originalSchema = schema;
@@ -43708,8 +43815,14 @@ function visualize(query, schema, container, d3) {
   try{
     var ast = parse_sql(stripped_query);
   } catch (e) {
-    //container.text(e)
-    //return;
+    try {
+      var fixed_query = attemptOrderingFix(stripped_query);
+      var ast = parse_sql(fixed_query);
+    }
+    catch (e) {
+      container.text(e);
+      return;
+      }
   }
 
   console.log('AST:', ast);
