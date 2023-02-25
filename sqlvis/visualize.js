@@ -1,3 +1,9 @@
+/*
+Table of contents
+- PEG.js: Line 7
+- D3.js: Line ????
+- SQLVis: Line ????
+
 // Global variables
 
 /*
@@ -43696,7 +43702,6 @@ THE SOFTWARE.
                               });
 
 
-
 function determineKeywordOrder(query, keywordsToFind) {
   var keywordArray = [];
   var indexArray = [];
@@ -43803,26 +43808,35 @@ function attemptOrderingFix(query) {
   return rebuiltQuery;
 }
 
+function parseQuery(query, container) {
+  // Generate the AST.
+  try{
+    var ast = parse_sql(query);
+  } catch (e) {
+    console.log('Query contained errors that make it unparseable. Attempting repairs.');
+    var fixed_query = attemptOrderingFix(query);
+    var ast = parse_sql(fixed_query);
+  }
+
+  return ast;
+}
+
 
 var levelsWithErrors = [];
 function visualize(query, schema, container, d3) {
   originalSchema = schema;
   currentSchema = schema;
   // Strip ; from the query as this will cause errors in the AST generation.
+  // TODO: this should probably be Python-sided, considering Python also has 
+  //   the rest of the query cleanup. Or it should all be here instead.
   var stripped_query = query.replace(/;/, '');
 
-  // Generate the AST.
-  try{
-    var ast = parse_sql(stripped_query);
-  } catch (e) {
-    try {
-      var fixed_query = attemptOrderingFix(stripped_query);
-      var ast = parse_sql(fixed_query);
-    }
-    catch (e) {
-      container.text(e);
-      return;
-      }
+  try {
+    var ast = parseQuery(stripped_query);
+  }
+  catch (e) {
+    container.text(e);
+    return;
   }
 
   console.log('AST:', ast);
@@ -45846,6 +45860,72 @@ function getTable(column, schema, tables=null) {
 	}
 }
 
+/*
+// UNCOMMENT FROM HERE UNTIL FURTHER DOWN FOR TESTING AND LOCAL
+//    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
+// (+- 60 lines, there is an end comment further down)
+
+if (typeof define !== 'function') {
+  var define = require('amdefine')(module);
+}
+
+define(function() {
+  // TODO: known issues:
+  // - Cannot use dynamic import here. That breaks Jest.
+  // - Cannot use require here. That breaks node AND Jest.
+
+  // This might be okay, as long as I really do not need
+  //   any requires or imports here at all ever.
+  // Might not be a big issue, if I use this part for test
+  //   functionality only and the things above for jupyter?
+
+  // var d3 = d3;
+  // var d3 = import('d3');
+  var e = {};
+
+  // e.getAST = function(container, query, schema) {
+  //   query = query.trim();
+  //   setSelections({});
+  //   setConditions({});
+    
+  //   container = d3.select(container);
+
+  //   var dbSchema = schema;
+
+  //   var stripped_query = query.replace(/;/, '');
+
+  //   var ast = parseQuery(stripped_query);
+
+  //   container.text(JSON.stringify(ast));
+  // };
+
+  e.returnsAAAAAA = function() {
+    return 'AAAAAA';
+  }
+
+  e.getAST_v2 = function(query, schema) {
+    console.log('V2 testing. No return? Where output?')
+    query = query.trim();
+    setSelections({});
+    setConditions({});
+    
+    var dbSchema = schema;
+
+    var stripped_query = query.replace(/;/, '');
+
+    var ast = parseQuery(stripped_query);
+    console.log('AAAAAAAAA');
+
+    return JSON.stringify(ast);
+  }
+
+  return e;
+});
+
+// COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
+//   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
+*/
+
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
   function visualizeMain(container, query, schema){
@@ -45863,4 +45943,25 @@ define('viz', ['d3'], function (d3) {
   };
 
   return visualizeMain;
+});
+
+define('ast_gen', ['d3'], function (d3) {
+  var d3 = d3;
+  function getAST(container, query, schema){
+    query = query.trim();
+    setSelections({});
+    setConditions({});
+    
+    container = d3.select(container);
+
+    var dbSchema = schema;
+
+    var stripped_query = query.replace(/;/, '');
+
+    var ast = parseQuery(stripped_query);
+
+    container.text(JSON.stringify(ast));
+  };
+
+  return getAST;
 });

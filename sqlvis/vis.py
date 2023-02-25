@@ -19,7 +19,18 @@ def schema_from_conn(conn):
 
     return schema
 
-def visualize(s, schema):
+
+def query_text_adjustments(query):
+    #First, escape all quotation marks.
+    query = query.replace("'", "\\'")
+    query = query.replace('\n', ' ')
+    query = query.replace('\r', ' ')
+    query = query.replace('\s+', ' ')
+
+    return query
+
+
+def js_display_overhead():
     # used d3.v5 previously
     display(Javascript("""
         require.config({
@@ -32,12 +43,29 @@ def visualize(s, schema):
     display(HTML(filename= dir_path + '/styles.css.html'))
     display(Javascript(filename= dir_path + '/visualize.js'))
 
-    #First, escape all quotation marks.
-    query = s.replace("'", "\\'")
-    query = query.replace('\n', ' ')
-    query = query.replace('\r', ' ')
-    query = query.replace('\s+', ' ')
-    
+
+def only_build_ast(s, schema):
+    js_display_overhead()
+    query = query_text_adjustments(s)
+    shortSchema = json.dumps(schema)
+
+    command = """
+    (function(element) {{
+            var query = '{0}';
+            var schema = {1};
+
+            require(['ast_gen'], function(ast_gen) {{
+                ast_gen(element.get(0), query, schema)
+            }});
+        }})(element);
+        """.format(query, shortSchema)
+
+    return display(Javascript(command))
+
+
+def visualize(s, schema):
+    js_display_overhead()    
+    query = query_text_adjustments(s)
     shortSchema = json.dumps(schema)
 
     command = """
