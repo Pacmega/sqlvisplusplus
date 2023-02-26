@@ -7,5 +7,9 @@
   },
   "dependencies": {
     "amdefine": "^1.0.1"
+  },
+  "jest": {
+    "testMatch": ["**/__tests__/**/*.[jt]s?(x)",
+                  "**/?(*.)+(spec|test).[jt]s?(x)"]
   }
 }
