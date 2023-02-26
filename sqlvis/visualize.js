@@ -43802,8 +43802,12 @@ function attemptOrderingFix(query) {
   return rebuiltQuery;
 }
 
-function parseQuery(query, container) {
+function parseQuery(query) {
   // Generate the AST.
+  if (typeof query !== 'string') {
+    throw Error('Input was not a query in text form (i.e. string).');
+  }
+
   try{
     var ast = parse_sql(query);
   } catch (e) {
@@ -45899,28 +45903,22 @@ define(function() {
   // Might not be a big issue, if I use this part for test
   //   functionality only and the things above for jupyter?
 
-  // var d3 = d3;
-  // var d3 = import('d3');
   var e = {};
-
-  // e.getAST = function(container, query, schema) {
-  //   query = query.trim();
-  //   setSelections({});
-  //   setConditions({});
-    
-  //   container = d3.select(container);
-
-  //   var dbSchema = schema;
-
-  //   var stripped_query = query.replace(/;/, '');
-
-  //   var ast = parseQuery(stripped_query);
-
-  //   container.text(JSON.stringify(ast));
-  // };
 
   e.returnsAAAAAA = function() {
     return 'AAAAAA';
+  }
+
+  e.attemptOrderingFix = function(query) {
+    return attemptOrderingFix(query);
+  }
+
+  e.queryTextAdjustments = function(query) {
+    return queryTextAdjustments(query);
+  }
+
+  e.parseQuery = function(query) {
+    return parseQuery(query);
   }
 
   e.getAST_v2 = function(query, schema) {
@@ -45934,10 +45932,6 @@ define(function() {
     var ast = parseQuery(stripped_query);
 
     return JSON.stringify(ast);
-  }
-
-  e.queryTextAdjustments = function(query) {
-    return queryTextAdjustments(query);
   }
 
   return e;
