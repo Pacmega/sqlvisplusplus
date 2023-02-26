@@ -20,16 +20,6 @@ def schema_from_conn(conn):
     return schema
 
 
-def query_text_adjustments(query):
-    #First, escape all quotation marks.
-    query = query.replace("'", "\\'")
-    query = query.replace('\n', ' ')
-    query = query.replace('\r', ' ')
-    query = query.replace('\s+', ' ')
-
-    return query
-
-
 def js_display_overhead():
     # used d3.v5 previously
     display(Javascript("""
@@ -46,7 +36,6 @@ def js_display_overhead():
 
 def only_build_ast(s, schema):
     js_display_overhead()
-    query = query_text_adjustments(s)
     shortSchema = json.dumps(schema)
 
     command = """
@@ -64,8 +53,7 @@ def only_build_ast(s, schema):
 
 
 def visualize(s, schema):
-    js_display_overhead()    
-    query = query_text_adjustments(s)
+    js_display_overhead()
     shortSchema = json.dumps(schema)
 
     command = """
