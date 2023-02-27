@@ -34,9 +34,17 @@ def js_display_overhead():
     display(Javascript(filename= dir_path + '/visualize.js'))
 
 
+def make_query_passable(s):
+    query = s.replace("'", "\\'")
+    query = query.replace('\n', ' ')
+    query = query.replace('\r', ' ')
+    query = query.replace('\s+', ' ')
+    return query
+
 def only_build_ast(s, schema):
     js_display_overhead()
     shortSchema = json.dumps(schema)
+    query = make_query_passable(s)
 
     command = """
     (function(element) {{
@@ -55,6 +63,7 @@ def only_build_ast(s, schema):
 def visualize(s, schema):
     js_display_overhead()
     shortSchema = json.dumps(schema)
+    query = make_query_passable(s)
 
     command = """
         (function(element) {{

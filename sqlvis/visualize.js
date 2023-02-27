@@ -45863,28 +45863,18 @@ function queryTextAdjustments(query) {
     throw Error('Input was not a query in text form (i.e. string).');
   }
 
-  // Instead of using replace, which only replaces the first instance
-  //   of each of these, this approach replaces them globally.
   var adjusted_query = query.split(';').join('');
   adjusted_query = adjusted_query.split('\n').join(' ');
   adjusted_query = adjusted_query.split('\r').join(' ');
   adjusted_query = adjusted_query.split('\s+').join(' ');
   adjusted_query = adjusted_query.split(/[\n\r]+/g).join(' ');
 
-  // Quotes relevant in SQL syntax should be escaped, to avoid
-  //   accidental interpretation by JS along the way.
-  // TODO: changed from \\ to \, based on ' not being
-  //   interpreted as expected based on GitHub issue #1,
-  //   but have not tested functionality in practice yet.
-  adjusted_query = adjusted_query.split("'").join("\'");
-  adjusted_query = adjusted_query.split('"').join('\"');
-  adjusted_query = adjusted_query.split('`').join('\`');
-  
   adjusted_query = adjusted_query.trim();
 
   return adjusted_query;
 }
 
+/*
 // UNCOMMENT FROM HERE UNTIL FURTHER DOWN FOR TESTING AND LOCAL
 //    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
 // (+- 60 lines, there is an end comment further down)
@@ -45939,7 +45929,7 @@ define(function() {
 
 // COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
 //   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
-
+*/
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
