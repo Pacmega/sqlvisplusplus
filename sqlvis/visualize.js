@@ -45874,7 +45874,7 @@ function queryTextAdjustments(query) {
   return adjusted_query;
 }
 
-/*
+
 // UNCOMMENT FROM HERE UNTIL FURTHER DOWN FOR TESTING AND LOCAL
 //    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
 // (+- 60 lines, there is an end comment further down)
@@ -45929,7 +45929,6 @@ define(function() {
 
 // COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
 //   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
-*/
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
