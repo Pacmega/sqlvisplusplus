@@ -1,3 +1,11 @@
+/*
+All of these can queries can be parsed normally by the SQLVis parser,
+despite not being possible to actually execute. Because of this, there
+is no reason to run tests on them until the actual AST analysis implementation
+comes into view. Currently I'm looking at fixing queries first, so these are
+not a priority for right now.
+*/
+
 const visCode = require('../../../sqlvis/visualize');
 
 test('Aggregation in WHERE before GROUP BY', () => {
@@ -8,11 +16,36 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 GROUP BY c.cName;`
 
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, p.price
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID);
+`
+
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  expect(ast).toBe('a');
+
+  expect(ast.type).toBe('select');
+  expect(ast.columns[0].expr.column).toBe('name');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.column).toBe('price');
+  expect(ast.columns[1].expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Aggregation in WHERE->AND before GROUP BY', () => {
   // Expected: AND part becomes separate HAVING
@@ -23,11 +56,23 @@ WHERE c.cID = p.cID
 AND p.price > AVG(p.price)
 GROUP BY c.cName`
 
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, p.price
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+GROUP BY c.cName
+HAVING p.price > AVG(p.price);
+`
+
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  expect(ast).toBe('THIS PARSES');
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Aggregation in both WHERE and HAVING', () => {
   // Expected: WHERE added to HAVING as AND component
@@ -36,13 +81,26 @@ SELECT c.cName, SUM(p.price)
 FROM customer AS c, purchase AS p
 WHERE c.cID = AVG(p.cID)
 GROUP BY c.cName
-HAVING p.price > AVG(p.price)`
+HAVING p.price > AVG(p.price)
+`
+
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, SUM(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING p.price > AVG(p.price)
+AND c.cID = AVG(p.cID)
+`
 
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  expect(ast).toBe('THIS PARSES');
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Aggregation in WHERE meant as filtering (no GROUP BY desired)', () => {
   // Expected: Check that the WHERE is properly parsed as aggregation < value
@@ -52,8 +110,12 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND SUM(p.price) < 10`
 
+  // Parses okay, no correction needed. Check that AST is as expected.
+
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('THIS PARSES');
 
   expect('Work in progress').toBe('Done');
 

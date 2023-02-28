@@ -1,3 +1,12 @@
+/*
+NOTE:
+The tests performed here for each query are based on the AST generated
+for the 'correct' version of each query, meaning the expected output
+with corrections made where required. To see the expected corrected queries
+and the ASTs around which these tests were written, look at
+expected_results/expected_asts_groupby_error_queries.json.
+*/
+
 const visCode = require('../../../sqlvis/visualize');
 
 test('GROUP BY before SELECT, WHERE with aggregation', () => {
@@ -9,11 +18,28 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('GROUP BY between SELECT and FROM, WHERE with aggregation', () => {
   // Expected: Move the GROUP BY, where -> having
@@ -24,11 +50,29 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Agg in SELECT & WHERE, correct GROUP BY present', () => {
   // Expected: where -> having
@@ -39,11 +83,29 @@ GROUP BY c.cName
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Agg in SELECT & WHERE, no GROUP BY present', () => {
   // Expected: check that the SUM is indeed parsed as an agg
@@ -56,8 +118,13 @@ WHERE c.cID = SUM(p.cID)
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  // Parses okay, no correction needed. Check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Second WHERE clause, should be HAVING', () => {
   // Expected: see test title
@@ -69,11 +136,30 @@ GROUP BY c.cName
 WHERE c.cName LIKE '%a%';
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+GROUP BY c.cName
+HAVING c.cName LIKE '%a%';
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('GROUP BY before SELECT but in subquery', () => {
   // Expected: reorder within subquery, leave main query untouched
@@ -87,11 +173,33 @@ WHERE c.cID IN (GROUP BY p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID IN (SELECT p2.cID
+                FROM purchase AS p2
+                GROUP BY p2.cID
+                HAVING SUM(p2.price) > 20)
+AND c.cID = p.cID
+GROUP BY c.cName;
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('GROUP BY before FROM but in subquery', () => {
   // Expected: reorder within subquery, leave main query untouched
@@ -105,11 +213,33 @@ WHERE c.cID IN (SELECT p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to
+  corrected_query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID IN (SELECT p2.cID
+                FROM purchase AS p2
+                GROUP BY p2.cID
+                HAVING SUM(p2.price) > 20)
+AND c.cID = p.cID
+GROUP BY c.cName;
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Agg in SELECT but no GROUP BY', () => {
   // Expected: This should be parseable just fine actually.
@@ -123,74 +253,160 @@ WHERE c.cID = p.cID;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  // Parses okay, no correction needed. Just check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
+
   expect('Work in progress').toBe('Done');
 });
 
+
 test('Agg in WHERE but no GROUP BY', () => {
-  // Expected: make the agg(col) get interpreted as a column name, then later
-  //   during analysis notice and fix that
+  // Expected: is parsed normally, so should be recognised and fixed later.
   query = `
 SELECT c.cName, p.price
 FROM customer AS c, purchase AS p
-WHERE c.cID = SUM(p.cID)`
-
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
-
-  expect('Work in progress').toBe('Done');
-});
-
-test('SELECT GROUP BY, no table mentioned in next term', () => {
-  // Expected: GROUP BY interpreted like aggregation function
-  // (that way the visualization would remain similar-ish)
-  query = `
-SELECT GROUP BY cName, SUM(purchase.price)
-FROM customer, purchase`
-
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
-
-  expect('Work in progress').toBe('Done');
-});
-
-test('SELECT GROUP BY, table to attach to', () => {
-  // Expected: GROUP BY getting affixed to the table's as
-  query = `
-SELECT GROUP BY customer.cName, SUM(purchase.price)
-FROM customer, purchase
+WHERE c.cID = SUM(p.cID)
 `
 
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  // Parses okay, no correction needed. Just check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
+
   expect('Work in progress').toBe('Done');
 });
 
-test('SELECT GROUP BY with aggregations', () => {
-  // Expected: Attach the GROUP BY to the aggregation for one big "agg_func"
-  query = `
-SELECT GROUP BY SUM(price)
-FROM purchase`
 
-  var clean_query = visCode.queryTextAdjustments(query);
+test('SELECT GROUP BY, no table mentioned in next term', () => {
+  // Expected: GROUP BY interpreted like function, should later
+  //   be rewritten into an agg_func like format for visualization
+  //   (that way the visualization would remain similar-ish)
+  query = `
+SELECT GROUP BY cName, SUM(purchase.price)
+FROM customer, purchase
+`
+
+  // What it should correct to (this parses)
+  corrected_query = `
+SELECT GROUPBY(cName), SUM(purchase.price)
+FROM customer, purchase
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
 
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
+
   expect('Work in progress').toBe('Done');
 });
+
+
+test('SELECT GROUP BY, table to attach to', () => {
+  // Expected: GROUP BY interpreted like function, should later
+  //   be rewritten into an agg_func like format for visualization
+  //   (that way the visualization would remain similar-ish)
+  query = `
+SELECT GROUP BY customer.cName, SUM(purchase.price)
+FROM customer, purchase
+`
+
+  // What it should correct to (this parses)
+  corrected_query = `
+SELECT GROUPBY(customer.cName), SUM(purchase.price)
+FROM customer, purchase
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
+
+  expect('Work in progress').toBe('Done');
+});
+
+
+test('SELECT GROUP BY with aggregations', () => {
+  // Expected: Attach the GROUP BY to the aggregation for one big "agg_func",
+  //   later rewrite into two agg_funcs on this col for visualization (?)
+  //   (that way the visualization would remain similar-ish)
+  query = `
+SELECT GROUP BY SUM(price)
+FROM purchase
+`
+
+  // What it should correct to
+  corrected_query = `
+SELECT GROUPBY_SUM(price)
+FROM purchase
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
+
+  expect('Work in progress').toBe('Done');
+});
+
 
 test('Query with WHERE COUNT(GROUP BY [col]) statement', () => {
   // Expected: WHERE statement moved to HAVING, GROUP BY affixed to [col]
+  // ^ What was I on? That wouldn't parse, or make sense 
+  // TODO: what actually is the expected result?
   query = `
 SELECT c.cName, p.price
 FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND COUNT(GROUP BY p.pID) < 5;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
+  // What it should correct to... maybe?
+  // TODO: I'm not so sure about this one.
+  corrected_query = `
+SELECT c.cName, p.price
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+AND COUNT_GROUPBY(p.pID) < 5;
+`
+
+  // var clean_query = visCode.queryTextAdjustments(query);
+  // var ast = visCode.parseQuery(clean_query);
+
+  // expect(ast).toBe('THIS PARSES');
+  //doesn't
+
+  var clean_query = visCode.queryTextAdjustments(corrected_query);
   var ast = visCode.parseQuery(clean_query);
+
+  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+
 
   expect('Work in progress').toBe('Done');
 });
+
 
 test('Trying to GROUP BY on a table that is not being joined in', () => {
   // Expected: This should execute fine, it's just a bad idea.
@@ -203,8 +419,13 @@ GROUP BY purchase.price;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  // Parses okay, no correction needed. Just check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('GROUP BY on table that is not aggregated on', () => {
   // Expected: Should parse fine so focus on checking AST matches expectation
@@ -218,8 +439,13 @@ GROUP BY purchase.price;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
+  // Parses okay, no correction needed. Just check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
+
   expect('Work in progress').toBe('Done');
 });
+
 
 test('GROUP BY on table that is not aggregated on and also not joined in', () => {
   // Expected: Should parse fine (but makes no sense, don't bother correcting)
@@ -232,6 +458,10 @@ GROUP BY purchase.price;
 
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
+
+  // Parses okay, no correction needed. Just check that AST is as expected.
+  expect(ast).toBe('THIS PARSES');
+  //does
 
   expect('Work in progress').toBe('Done');
 });

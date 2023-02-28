@@ -1,0 +1,390 @@
+/* 
+All queries used here originate from Toni Taipalus's paper
+"Explaining Causes Behind SQL Query Formulation Errors".
+However, not all queries from said paper do in fact appear here.
+The ASTs stored here were generated from the queries above them,
+and tests were written for those queries based on these ASTs. for
+those where no AST is present here, I made use of the structures shown
+here to construct the tests without the need of the direct AST.
+*/
+
+/* 	SELECT c.name
+	FROM customer c, ordered o
+	WHERE c.customerid = o.customerid;
+*/
+
+{"columns": [{"as": null, 
+			  "expr": {"column": "name",
+			  		   "table": "c",
+			  		   "type": "column_ref"}}],
+ "distinct": null,
+ "from": [{"as": "c",
+ 		   "db": null,
+ 		   "table": "customer"},
+ 		   {"as": "o",
+ 		    "db": null,
+ 			"table": "ordered"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": {"left": {"column": "customerid",
+ 					"table": "c",
+ 					"type": "column_ref"},
+ 		   "operator": "=",
+ 		   "right": {"column": "customerid",
+ 		   			 "table": "o",
+ 		   			 "type": "column_ref"},
+ 		   "type": "binary_expr"},
+ "with": null}
+
+
+/*	SELECT c.name
+	FROM customer c
+	JOIN ordered o
+	ON (c.customerid = o.customerid);
+*/
+
+{"columns": [{"as": null,
+			  "expr": {"column": "name",
+					   "table": "c",
+					   "type": "column_ref"}}],
+ "distinct": null,
+ "from": [{"as": "c",
+ 		   "db": null,
+ 		   "table": "customer"},
+ 		  {"as": "o",
+ 		   "db": null,
+ 		   "join": "INNER JOIN",
+ 		   "on": {"left": {"column": "customerid",
+ 		   				   "table": "c",
+ 		   				   "type": "column_ref"},
+ 		   		  "operator": "=",
+ 		   		  "parentheses": true,
+ 		   		  "right": {"column": "customerid",
+ 		   		  			"table": "o",
+ 		   		  			"type": "column_ref"},
+ 		   		  "type": "binary_expr"},
+ 		   	"table": "ordered"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": null,
+ "with": null}
+
+
+/*	SELECT p.productid, p.description
+	FROM product p
+	WHERE NOT EXISTS
+	    (SELECT *
+	    FROM ordered o
+	    WHERE p.productid = o.productid)
+	AND EXISTS
+	    (SELECT *
+	    FROM supplies s
+	    WHERE p.productid = s.productid);
+*/
+
+{"columns": [{"as": null,
+			  "expr": {"column": "productid",
+					   "table": "p",
+					   "type": "column_ref"}},
+			 {"as": null,
+			  "expr": {"column": "description",
+			  		   "table": "p",
+			  		   "type": "column_ref"}}],
+ "distinct": null,
+ "from": [{"as": "p",
+ 		   "db": null,
+		   "table": "product"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": {"left": {"expr": {"columns": "*",
+ 							 "distinct": null,
+ 							 "from": [{"as": "o",
+ 							 		   "db": null,
+ 							 		   "table": "ordered"}],
+ 							 "groupby": null,
+ 							 "having": null,
+ 							 "limit": null,
+ 							 "options": null,
+ 							 "orderby": null,
+ 							 "parentheses": true,
+ 							 "type": "select",
+ 							 "where": {"left": {"column": "productid",
+ 							 					"table": "p",
+ 							 					"type": "column_ref"},
+ 							 		   "operator": "=",
+ 							 		   "right": {"column": "productid",
+ 							 		   			 "table": "o",
+ 							 		   			"type": "column_ref"},
+ 							 		   "type": "binary_expr"},
+ 							  "with": null},
+					"operator": "NOT EXISTS",
+					"type": "unary_expr"},
+ 		   "operator": "AND",
+ 		   "right": {"expr": {"columns": "*",
+ 		   					  "distinct": null,
+ 		   					  "from": [{"as": "s",
+ 		   					  			"db": null,
+ 		   					  			"table": "supplies"}],
+ 		   					  "groupby": null,
+ 		   					  "having": null,
+ 		   					  "limit": null,
+ 		   					  "options": null,
+ 		   					  "orderby": null,
+ 		   					  "parentheses": true,
+ 		   					  "type": "select",
+ 		   					  "where": {"left": {"column": "productid",
+ 		   					  					 "table": "p",
+ 		   					  					 "type": "column_ref"},
+ 		   					  			"operator": "=",
+ 		   					  			"right": {"column": "productid",
+ 		   					  					  "table": "s",
+ 		   					  					  "type": "column_ref"},
+ 		   					  			"type": "binary_expr"},
+ 		   					   "with": null},
+ 		   			 "operator": "EXISTS",
+ 		   			 "type": "unary_expr"},
+ 		   "type": "binary_expr"},
+ "with": null}
+
+
+/*	SELECT p.productid, p.description
+	FROM product p
+	WHERE NOT EXISTS
+	    (SELECT *
+	    FROM ordered o
+	    WHERE p.productid = o.productid
+	    AND EXISTS
+	        (SELECT *
+	         FROM supplies s
+	         WHERE p.productid = s.productid)
+	    );
+*/
+
+{"columns": [{"as": null, 
+              "expr": {"column": "productid", 
+                       "table": "p", 
+                       "type": "column_ref"}}, 
+             {"as": null,
+              "expr": {"column": "description",
+                       "table": "p",
+                       "type": "column_ref"}}],
+ "distinct": null,
+ "from": [{"as": "p",
+           "db": null,
+           "table": "product"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": {"expr": {"columns": "*",
+                    "distinct": null,
+                    "from": [{"as": "o",
+                              "db": null,
+                              "table": "ordered"}],
+                    "groupby": null,
+                    "having": null,
+                    "limit": null,
+                    "options": null,
+                    "orderby": null,
+                    "parentheses": true,
+                    "type": "select",
+                    "where": {"left": {"left": {"column": "productid",
+                                                "table": "p",
+                                                "type": "column_ref"},
+                                       "operator": "=",
+                                       "right": {"column": "productid",
+                                                 "table": "o",
+                                                 "type": "column_ref"},
+                                       "type": "binary_expr"},
+                              "operator": "AND",
+                              "right": {"expr": {"columns": "*",
+                                                 "distinct": null,
+                                                 "from": [{"as": "s",
+                                                           "db": null,
+                                                           "table": "supplies"}],
+                                                 "groupby": null,
+                                                 "having": null,
+                                                 "limit": null,
+                                                 "options": null,
+                                                 "orderby": null,
+                                                 "parentheses": true,
+                                                 "type": "select",
+                                                 "where": {"left": {"column": "productid",
+                                                                    "table": "p",
+                                                                    "type": "column_ref"},
+                                                           "operator": "=",
+                                                           "right": {"column": "productid",
+                                                                     "table": "s",
+                                                                     "type": "column_ref"},
+                                                           "type": "binary_expr"},
+                                                  "with": null},
+                                        "operator": "EXISTS",
+                                        "type": "unary_expr"},
+                              "type": "binary_expr"},
+                    "with": null},
+           "operator": "NOT EXISTS",
+           "type": "unary_expr"}, 
+ "with": null}
+
+
+/*	SELECT productid, onhand
+	FROM product
+	WHERE description = 'used'
+	AND onhand =
+	    (SELECT MAX(onhand)
+	    FROM product
+	    WHERE description = 'used');
+*/
+
+{"columns": [{"as": null,
+              "expr": {"column": "productid",
+                       "table": null,
+                       "type": "column_ref"}},
+             {"as": null,
+              "expr": {"column": "onhand",
+              "table": null,
+              "type": "column_ref"}}],
+ "distinct": null,
+ "from": [{"as": null,
+           "db": null,
+           "table": "product"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": {"left": {"left": {"column": "description",
+                             "table": null,
+                             "type": "column_ref"},
+                    "operator": "=",
+                    "right": {"type": "string",
+                              "value": "used"},
+                    "type": "binary_expr"},
+           "operator": "AND",
+           "right": {"left": {"column": "onhand",
+                              "table": null,
+                              "type": "column_ref"},
+                     "operator": "=",
+                     "right": {"columns": [{"as": null,
+                                            "expr": {"args": {"expr": {"column": "onhand",
+                                                                       "table": null,
+                                                                       "type": "column_ref"}},
+                                                     "name": "MAX",
+                                                     "type": "aggr_func"}}],
+                               "distinct": null,
+                               "from": [{"as": null,
+                                         "db": null,
+                                         "table": "product"}],
+                               "groupby": null,
+                               "having": null,
+                               "limit": null,
+                               "options": null,
+                               "orderby": null,
+                               "parentheses": true,
+                               "type": "select", "where": {"left": {"column": "description",
+                                                                    "table": null,
+                                                                    "type": "column_ref"},
+                                                           "operator": "=",
+                                                           "right": {"type": "string",
+                                                                     "value": "used"},
+                                                           "type": "binary_expr"},
+                               "with": null},
+                     "type": "binary_expr"},
+           "type": "binary_expr"},
+ "with": null}
+
+
+/*	SELECT productid, SUM(quantity)
+	FROM ordered
+	GROUP BY productid;
+*/
+
+{"columns": [{"as": null,
+			  "expr": {"column": "productid",
+			  		   "table": null,
+			  		   "type": "column_ref"}},
+			 {"as": null,
+			  "expr": {"args": {"expr": {"column": "quantity",
+			  							 "table": null,
+			  							 "type": "column_ref"}},
+			  		   "name": "SUM",
+			  		   "type": "aggr_func"}}],
+ "distinct": null,
+ "from": [{"as": null,
+ 		   "db": null,
+ 		   "table": "ordered"}],
+ "groupby": [{"column": "productid",
+ 			  "table": null,
+ 			  "type": "column_ref"}],
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": null,
+ "with": null}
+
+/*	SELECT p.productid
+	       , SUM(o.quantity)
+	       , COUNT(DISTINCT o.customerid)
+	FROM product p, ordered o
+	WHERE p.productid = o.productid
+	GROUP BY p.productid;
+*/
+
+{"columns": [{"as": null,
+              "expr": {"column": "productid",
+                       "table": "p",
+                       "type": "column_ref"}},
+             {"as": null,
+              "expr": {"args": {"expr": {"column": "quantity",
+                                         "table": "o",
+                                         "type": "column_ref"}},
+                       "name": "SUM",
+                       "type": "aggr_func"}},
+             {"as": null,
+              "expr": {"args": {"distinct": "DISTINCT",
+                                "expr": {"column": "customerid",
+                                         "table": "o",
+                                         "type": "column_ref"}},
+                       "name": "COUNT",
+                       "type": "aggr_func"}}],
+ "distinct": null,
+ "from": [{"as": "p",
+           "db": null,
+           "table": "product"},
+          {"as": "o",
+           "db": null,
+           "table": "ordered"}],
+ "groupby": [{"column": "productid",
+              "table": "p",
+              "type": "column_ref"}],
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": {"left": {"column": "productid",
+                    "table": "p",
+                    "type": "column_ref"},
+           "operator": "=",
+           "right": {"column": "productid",
+                     "table": "o",
+                     "type": "column_ref"},
+           "type": "binary_expr"},
+ "with": null}

@@ -1,0 +1,180 @@
+/*
+NOTE:
+All of these "corrected query ASTs" were created using the manually written
+'corrected' versions of the queries used in the tests. The queries described
+here are those 'corrected' versions, except for queries where the original
+could be parsed. In that case, the original query is shown here.
+*/
+
+/* GROUP BY before SELECT, WHERE with aggregation */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": [{"column": "cName", "table": "c", "type": "column_ref"}], "having": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"args": {"expr": {"column": "cID", "table": "p", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "type": "binary_expr"}, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* GROUP BY between SELECT and FROM, WHERE with aggregation */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": [{"column": "cName", "table": "c", "type": "column_ref"}], "having": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"args": {"expr": {"column": "cID", "table": "p", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "type": "binary_expr"}, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* Agg in SELECT & WHERE, correct GROUP BY present */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+GROUP BY c.cName
+HAVING c.cID = SUM(p.cID)
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": [{"column": "cName", "table": "c", "type": "column_ref"}], "having": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"args": {"expr": {"column": "cID", "table": "p", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "type": "binary_expr"}, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* Agg in SELECT & WHERE, no GROUP BY present */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = SUM(p.cID)
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"args": {"expr": {"column": "cID", "table": "p", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "type": "binary_expr"}, "with": null}
+
+
+/* Second WHERE clause, should be HAVING */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+GROUP BY c.cName
+HAVING c.cName LIKE '%a%';
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": [{"column": "cName", "table": "c", "type": "column_ref"}], "having": {"left": {"column": "cName", "table": "c", "type": "column_ref"}, "operator": "LIKE", "right": {"type": "string", "value": "%a%"}, "type": "binary_expr"}, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"column": "cID", "table": "p", "type": "column_ref"}, "type": "binary_expr"}, "with": null}
+
+
+/* GROUP BY before SELECT but in subquery */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID IN (SELECT p2.cID
+                FROM purchase AS p2
+                GROUP BY p2.cID
+                HAVING SUM(p2.price) > 20)
+AND c.cID = p.cID
+GROUP BY c.cName;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": [{"column": "cName", "table": "c", "type": "column_ref"}], "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "IN", "right": {"type": "expr_list", "value": [{"columns": [{"as": null, "expr": {"column": "cID", "table": "p2", "type": "column_ref"}}], "distinct": null, "from": [{"as": "p2", "db": null, "table": "purchase"}], "groupby": [{"column": "cID", "table": "p2", "type": "column_ref"}], "having": {"left": {"args": {"expr": {"column": "price", "table": "p2", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "operator": ">", "right": {"type": "number", "value": 20}, "type": "binary_expr"}, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}]}, "type": "binary_expr"}, "operator": "AND", "right": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"column": "cID", "table": "p", "type": "column_ref"}, "type": "binary_expr"}, "type": "binary_expr"}, "with": null}
+
+
+/* GROUP BY before FROM but in subquery */
+/* See above. Same corrected query, and same AST. */
+
+/* Agg in SELECT but no GROUP BY */
+/* Query:
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "p", "type": "column_ref"}}, "name": "MAX", "type": "aggr_func"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"column": "cID", "table": "p", "type": "column_ref"}, "type": "binary_expr"}, "with": null}
+
+
+/* Agg in WHERE but no GROUP BY */
+/* Query:
+SELECT c.cName, p.price
+FROM customer AS c, purchase AS p
+WHERE c.cID = SUM(p.cID)
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"column": "price", "table": "p", "type": "column_ref"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"args": {"expr": {"column": "cID", "table": "p", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}, "type": "binary_expr"}, "with": null}
+
+
+/* SELECT GROUP BY, no table mentioned in next term */
+/* Query:
+SELECT GROUPBY(cName), SUM(purchase.price)
+FROM customer, purchase
+*/
+{"columns": [{"as": null,
+			  "expr": {"args": {"type": "expr_list",
+			  					"value": [{"column": "cName",
+						  				   "table": null,
+						  				   "type": "column_ref"}]},
+			  		   "name": "GROUPBY",
+			  		   "type": "function"}},
+			 {"as": null,
+			  "expr": {"args": {"expr": {"column": "price",
+			  							 "table": "purchase",
+			  							 "type": "column_ref"}},
+			  		   "name": "SUM",
+			  		   "type": "aggr_func"}}],
+ "distinct": null,
+ "from": [{"as": null,
+           "db": null,
+       	   "table": "customer"},
+       	  {"as": null,
+       	   "db": null,
+       	   "table": "purchase"}],
+ "groupby": null,
+ "having": null,
+ "limit": null,
+ "options": null,
+ "orderby": null,
+ "type": "select",
+ "where": null,
+ "with": null}
+
+
+/* SELECT GROUP BY, table to attach to */
+/* Query:
+SELECT GROUPBY(customer.cName), SUM(purchase.price)
+FROM customer, purchase
+*/
+{"columns": [{"as": null, "expr": {"args": {"type": "expr_list", "value": [{"column": "cName", "table": "customer", "type": "column_ref"}]}, "name": "GROUPBY", "type": "function"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "purchase", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}}], "distinct": null, "from": [{"as": null, "db": null, "table": "customer"}, {"as": null, "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* SELECT GROUP BY with aggregations */
+/* Query:
+SELECT GROUPBY_SUM(price)
+FROM purchase
+*/
+{"columns": [{"as": null, "expr": {"args": {"type": "expr_list", "value": [{"column": "price", "table": null, "type": "column_ref"}]}, "name": "GROUPBY_SUM", "type": "function"}}], "distinct": null, "from": [{"as": null, "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* Query with WHERE COUNT(GROUP BY [col]) statement */
+/* Query:
+SELECT c.cName, p.price
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+AND COUNT_GROUPBY(p.pID) < 5;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": "c", "type": "column_ref"}}, {"as": null, "expr": {"column": "price", "table": "p", "type": "column_ref"}}], "distinct": null, "from": [{"as": "c", "db": null, "table": "customer"}, {"as": "p", "db": null, "table": "purchase"}], "groupby": null, "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"left": {"column": "cID", "table": "c", "type": "column_ref"}, "operator": "=", "right": {"column": "cID", "table": "p", "type": "column_ref"}, "type": "binary_expr"}, "operator": "AND", "right": {"left": {"args": {"type": "expr_list", "value": [{"column": "pID", "table": "p", "type": "column_ref"}]}, "name": "COUNT_GROUPBY", "type": "function"}, "operator": "<", "right": {"type": "number", "value": 5}, "type": "binary_expr"}, "type": "binary_expr"}, "with": null}
+
+
+/* Trying to GROUP BY on a table that is not being joined in */
+/* Query:
+SELECT cName, SUM(purchase.price)
+FROM customer, purchase
+GROUP BY purchase.price;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": null, "type": "column_ref"}}, {"as": null, "expr": {"args": {"expr": {"column": "price", "table": "purchase", "type": "column_ref"}}, "name": "SUM", "type": "aggr_func"}}], "distinct": null, "from": [{"as": null, "db": null, "table": "customer"}, {"as": null, "db": null, "table": "purchase"}], "groupby": [{"column": "price", "table": "purchase", "type": "column_ref"}], "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
+
+
+/* GROUP BY on table that is not aggregated on */
+/* Query:
+SELECT cName
+FROM customer, purchase
+WHERE customer.cID = purchase.cID
+GROUP BY purchase.price;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": null, "type": "column_ref"}}], "distinct": null, "from": [{"as": null, "db": null, "table": "customer"}, {"as": null, "db": null, "table": "purchase"}], "groupby": [{"column": "price", "table": "purchase", "type": "column_ref"}], "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": {"left": {"column": "cID", "table": "customer", "type": "column_ref"}, "operator": "=", "right": {"column": "cID", "table": "purchase", "type": "column_ref"}, "type": "binary_expr"}, "with": null}
+
+
+/* GROUP BY on table that is not aggregated on and also not joined in */
+/* Query:
+SELECT cName
+FROM customer, purchase
+GROUP BY purchase.price;
+*/
+{"columns": [{"as": null, "expr": {"column": "cName", "table": null, "type": "column_ref"}}], "distinct": null, "from": [{"as": null, "db": null, "table": "customer"}, {"as": null, "db": null, "table": "purchase"}], "groupby": [{"column": "price", "table": "purchase", "type": "column_ref"}], "having": null, "limit": null, "options": null, "orderby": null, "type": "select", "where": null, "with": null}
