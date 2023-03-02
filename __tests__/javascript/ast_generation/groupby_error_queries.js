@@ -18,26 +18,40 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-GROUP BY c.cName
-HAVING c.cID = SUM(p.cID)
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.column).toBe('cID');
+  expect(ast.having.left.table).toBe('c');
+  expect(ast.having.operator).toBe('=');
+  expect(ast.having.right.type).toBe('aggr_func');
+  expect(ast.having.right.name).toBe('SUM');
+  expect(ast.having.right.args.expr.column).toBe('cID');
+  expect(ast.having.right.args.expr.table).toBe('p');
 });
 
 
@@ -50,27 +64,40 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-GROUP BY c.cName
-HAVING c.cID = SUM(p.cID)
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.column).toBe('cID');
+  expect(ast.having.left.table).toBe('c');
+  expect(ast.having.operator).toBe('=');
+  expect(ast.having.right.type).toBe('aggr_func');
+  expect(ast.having.right.name).toBe('SUM');
+  expect(ast.having.right.args.expr.column).toBe('cID');
+  expect(ast.having.right.args.expr.table).toBe('p');
 });
 
 
@@ -83,27 +110,40 @@ GROUP BY c.cName
 WHERE c.cID = SUM(p.cID)
 `
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-GROUP BY c.cName
-HAVING c.cID = SUM(p.cID)
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.column).toBe('cID');
+  expect(ast.having.left.table).toBe('c');
+  expect(ast.having.operator).toBe('=');
+  expect(ast.having.right.type).toBe('aggr_func');
+  expect(ast.having.right.name).toBe('SUM');
+  expect(ast.having.right.args.expr.column).toBe('cID');
+  expect(ast.having.right.args.expr.table).toBe('p');
 });
 
 
@@ -118,11 +158,34 @@ WHERE c.cID = SUM(p.cID)
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.type).toBe('aggr_func');
+  expect(ast.where.right.name).toBe('SUM');
+  expect(ast.where.right.args.expr.column).toBe('cID');
+  expect(ast.where.right.args.expr.table).toBe('p');
 });
 
 
@@ -136,28 +199,43 @@ GROUP BY c.cName
 WHERE c.cName LIKE '%a%';
 `
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-WHERE c.cID = p.cID
-GROUP BY c.cName
-HAVING c.cName LIKE '%a%';
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.column).toBe('cName');
+  expect(ast.having.left.table).toBe('c');
+  expect(ast.having.operator).toBe('LIKE');
+  expect(ast.having.right.value).toBe('%a%');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
 });
 
 
@@ -173,31 +251,63 @@ WHERE c.cID IN (GROUP BY p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-WHERE c.cID IN (SELECT p2.cID
-                FROM purchase AS p2
-                GROUP BY p2.cID
-                HAVING SUM(p2.price) > 20)
-AND c.cID = p.cID
-GROUP BY c.cName;
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('IN');
+  
+  // Subquery happens here
+  expect(ast.where.left.right.value[0].type).toBe('select');
+  expect(ast.where.left.right.type).toBe('expr_list');
+  expect(ast.where.left.right.value[0].columns[0].expr.column).toBe('cID');
+  expect(ast.where.left.right.value[0].columns[0].expr.table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].from[0].as).toBe('p2');
+  expect(ast.where.left.right.value[0].from[0].table).toBe('purchase');
+
+  expect(ast.where.left.right.value[0].groupby[0].column).toBe('cID');
+  expect(ast.where.left.right.value[0].groupby[0].table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].having.left.name).toBe('SUM');
+  expect(ast.where.left.right.value[0].having.left.type).toBe('aggr_func');
+  expect(ast.where.left.right.value[0].having.left.args.expr.column).toBe('price');
+  expect(ast.where.left.right.value[0].having.left.args.expr.table).toBe('p2');
+  expect(ast.where.left.right.value[0].having.operator).toBe('>');
+  expect(ast.where.left.right.value[0].having.right.value).toBe(20);
+  // End of subquery
+
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('cID');
+  expect(ast.where.right.left.table).toBe('c');
+  expect(ast.where.right.operator).toBe('=');
+  expect(ast.where.right.right.column).toBe('cID');
+  expect(ast.where.right.right.table).toBe('p');
 });
 
 
@@ -213,31 +323,63 @@ WHERE c.cID IN (SELECT p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  // What it should correct to
-  corrected_query = `
-SELECT c.cName, MAX(p.price)
-FROM customer AS c, purchase AS p
-WHERE c.cID IN (SELECT p2.cID
-                FROM purchase AS p2
-                GROUP BY p2.cID
-                HAVING SUM(p2.price) > 20)
-AND c.cID = p.cID
-GROUP BY c.cName;
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('IN');
+  
+  // Subquery happens here
+  expect(ast.where.left.right.value[0].type).toBe('select');
+  expect(ast.where.left.right.type).toBe('expr_list');
+  expect(ast.where.left.right.value[0].columns[0].expr.column).toBe('cID');
+  expect(ast.where.left.right.value[0].columns[0].expr.table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].from[0].as).toBe('p2');
+  expect(ast.where.left.right.value[0].from[0].table).toBe('purchase');
+
+  expect(ast.where.left.right.value[0].groupby[0].column).toBe('cID');
+  expect(ast.where.left.right.value[0].groupby[0].table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].having.left.name).toBe('SUM');
+  expect(ast.where.left.right.value[0].having.left.type).toBe('aggr_func');
+  expect(ast.where.left.right.value[0].having.left.args.expr.column).toBe('price');
+  expect(ast.where.left.right.value[0].having.left.args.expr.table).toBe('p2');
+  expect(ast.where.left.right.value[0].having.operator).toBe('>');
+  expect(ast.where.left.right.value[0].having.right.value).toBe(20);
+  // End of subquery
+
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('cID');
+  expect(ast.where.right.left.table).toBe('c');
+  expect(ast.where.right.operator).toBe('=');
+  expect(ast.where.right.right.column).toBe('cID');
+  expect(ast.where.right.right.table).toBe('p');
 });
 
 
@@ -253,11 +395,32 @@ WHERE c.cID = p.cID;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Just check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
 });
 
 
@@ -272,11 +435,32 @@ WHERE c.cID = SUM(p.cID)
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Just check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.column).toBe('price');
+  expect(ast.columns[1].expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.type).toBe('aggr_func');
+  expect(ast.where.right.name).toBe('SUM');
+  expect(ast.where.right.args.expr.column).toBe('cID');
+  expect(ast.where.right.args.expr.table).toBe('p');
 });
 
 
@@ -289,25 +473,32 @@ SELECT GROUP BY cName, SUM(purchase.price)
 FROM customer, purchase
 `
 
-  // What it should correct to (this parses)
-  corrected_query = `
-SELECT GROUPBY(cName), SUM(purchase.price)
-FROM customer, purchase
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  // Notice the recognition as a function, not as an aggr_func.
+  // This will be relevant later, in analysis.
+  expect(ast.columns[0].expr.name).toBe('GROUPBY');
+  expect(ast.columns[0].expr.type).toBe('function');
+  expect(ast.columns[0].expr.args.type).toBe('expr_list');
+  expect(ast.columns[0].expr.args.value[0].table).toBeNull();
+  expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('SUM');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('purchase');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].table).toBe('purchase');
 });
 
 
@@ -320,25 +511,32 @@ SELECT GROUP BY customer.cName, SUM(purchase.price)
 FROM customer, purchase
 `
 
-  // What it should correct to (this parses)
-  corrected_query = `
-SELECT GROUPBY(customer.cName), SUM(purchase.price)
-FROM customer, purchase
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  // Notice the recognition as a function, not as an aggr_func.
+  // This will be relevant later, in analysis.
+  expect(ast.columns[0].expr.name).toBe('GROUPBY');
+  expect(ast.columns[0].expr.type).toBe('function');
+  expect(ast.columns[0].expr.args.type).toBe('expr_list');
+  expect(ast.columns[0].expr.args.value[0].table).toBe('customer');
+  expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('SUM');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('purchase');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].table).toBe('purchase');
 });
 
 
@@ -351,60 +549,71 @@ SELECT GROUP BY SUM(price)
 FROM purchase
 `
 
-  // What it should correct to
-  corrected_query = `
-SELECT GROUPBY_SUM(price)
-FROM purchase
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.name).toBe('GROUPBY_SUM');
+  expect(ast.columns[0].expr.type).toBe('function');
+  expect(ast.columns[0].expr.args.value[0].column).toBe('price');
+  expect(ast.columns[0].expr.args.value[0].table).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBeNull();
+  expect(ast.from[0].table).toBe('purchase');
 });
 
 
 test('Query with WHERE COUNT(GROUP BY [col]) statement', () => {
   // Expected: WHERE statement moved to HAVING, GROUP BY affixed to [col]
-  // ^ What was I on? That wouldn't parse, or make sense 
-  // TODO: what actually is the expected result?
+  // NOTE: I may end up revising this idea and test at some point.
   query = `
 SELECT c.cName, p.price
 FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND COUNT(GROUP BY p.pID) < 5;`
 
-  // What it should correct to... maybe?
-  // TODO: I'm not so sure about this one.
-  corrected_query = `
-SELECT c.cName, p.price
-FROM customer AS c, purchase AS p
-WHERE c.cID = p.cID
-AND COUNT_GROUPBY(p.pID) < 5;
-`
-
-  // var clean_query = visCode.queryTextAdjustments(query);
-  // var ast = visCode.parseQuery(clean_query);
-
-  // expect(ast).toBe('THIS PARSES');
-  //doesn't
-
-  var clean_query = visCode.queryTextAdjustments(corrected_query);
+  var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  expect(ast).toBe('PART 2: DOES THIS PARSE?');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
 
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.column).toBe('price');
+  expect(ast.columns[1].expr.table).toBe('p');
 
-  expect('Work in progress').toBe('Done');
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('cID');
+  expect(ast.where.left.right.table).toBe('p');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.name).toBe('COUNT_GROUPBY');
+  expect(ast.where.right.left.type).toBe('function');
+  expect(ast.where.right.left.args.value[0].column).toBe('pID');
+  expect(ast.where.right.left.args.value[0].table).toBe('p');
+  expect(ast.where.right.operator).toBe('<');
+  expect(ast.where.right.right.value).toBe(5);
 });
 
 
@@ -419,11 +628,29 @@ GROUP BY purchase.price;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Just check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBeNull();
+  expect(ast.columns[1].expr.name).toBe('SUM');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('purchase');
+
+  expect(ast.from[0].as).toBeNull();
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBeNull();
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('price');
+  expect(ast.groupby[0].table).toBe('purchase');
 });
 
 
@@ -439,11 +666,31 @@ GROUP BY purchase.price;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Just check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBeNull();
+
+  expect(ast.from[0].as).toBeNull();
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBeNull();
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('price');
+  expect(ast.groupby[0].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('customer');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('purchase');
 });
 
 
@@ -459,9 +706,23 @@ GROUP BY purchase.price;
   var clean_query = visCode.queryTextAdjustments(query);
   var ast = visCode.parseQuery(clean_query);
 
-  // Parses okay, no correction needed. Just check that AST is as expected.
-  expect(ast).toBe('THIS PARSES');
-  //does
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
 
-  expect('Work in progress').toBe('Done');
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBeNull();
+
+  expect(ast.from[0].as).toBeNull();
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBeNull();
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('price');
+  expect(ast.groupby[0].table).toBe('purchase');
 });
