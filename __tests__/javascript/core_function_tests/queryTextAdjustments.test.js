@@ -1,4 +1,4 @@
-const visCode = require('../../../sqlvis/visualize')
+const visCode = require('../../../sqlvis/visualize');
 
 test('Normal query', () => {
   var query = `
