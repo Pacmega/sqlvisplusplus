@@ -43711,8 +43711,10 @@ function allIndicesOf(searchString, matchString) {
 }
 
 function findKeywordAppearances(query, keywordsToFind) {
-  let keywordArray = [];
-  let indexArray = [];
+  // let keywordArray = [];
+  // let indexArray = [];
+  // Using an array for this lets us manage the ordering more easily.
+  let foundKeywords = [];
 
   for (let index in keywordsToFind) {
     let keyword = keywordsToFind[index];
@@ -43720,12 +43722,17 @@ function findKeywordAppearances(query, keywordsToFind) {
 
     if (foundAtIndices.length > 0) {
       // Keyword exists at least once in query
-      keywordArray.push(keyword);
-      indexArray.push(foundAtIndices);
+      for (let i = 0; i < foundAtIndices.length; i++) {
+        foundKeywords.push([keyword, foundAtIndices[i]]);
+      }
+      // Keyword exists at least once in query
+      // keywordArray.push(keyword);
+      // indexArray.push(foundAtIndices);
     }
   }
 
-  return {foundKeywords: keywordArray, foundIndices: indexArray}
+  // return {foundKeywords: keywordArray, foundIndices: indexArray}
+  return foundKeywords;
 }
 
 function findThisLevelEnd(query) {
@@ -43818,11 +43825,362 @@ function subsetQueryToLevelAtIndex(query, index) {
   return subquery
 }
 
+function onlyKeepSubqueryBrackets(keywordStatus) {
+  let lastItemOpenBracket = false;
+  let indexPairsToRemove = [];
+
+  for (let itemIndex in keywordStatus) {
+    if (lastItemOpenBracket) {
+      if (keywordStatus[itemIndex][0] == ')') {
+        // Found a set of brackets without keywords between them, meaning
+        //   a function call (probably) and not a subquery.
+        // Mark for removal and reset.
+        indexPairsToRemove.push(itemIndex-1);
+        lastItemOpenBracket = false;
+      }
+      else {
+        // A keyword is between the brackets, this is probably a subquery.
+        lastItemOpenBracket = false;
+      }
+    } else if (keywordStatus[itemIndex][0] == '(') {
+      lastItemOpenBracket = true;
+    }
+  }
+
+  // Reverse the pairs to remove, so we remove from the end of keywordStatus
+  //   first. This was all other indices remain unaffected by each removal.
+  indexPairsToRemove.reverse();
+
+  for (let i in indexPairsToRemove) {
+    // Remove the opening bracket and immediately following closing bracket.
+    keywordStatus.splice(indexPairsToRemove[i], 2);
+  }
+
+  // Modifications happen in place, no return value.
+}
+
+
+function buildDepthString(currentDepth, previousDepths) {
+  let counter = 0;
+// (let i in keywordStatus.foundIndices)
+  for (let i in previousDepths) {
+    if (previousDepths[i] == currentDepth) {
+      counter++;
+    }
+  }
+
+  let depthString = ['level', currentDepth, counter].join('_');
+  return depthString;
+}
+
+
+function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
+  let returnObj = {};
+  let currentDepth = 0;
+  let previousDepths = [];
+
+  let depthString = buildDepthString(currentDepth, previousDepths);
+
+  // Initialize for initial depth
+  returnObj[depthString] = {keyword_array: []};
+
+  for (let i in keywordsPlusBrackets) {
+    let keyword = keywordsPlusBrackets[i][0];
+    if (keyword == '(') {
+      // Query depth increases by one step. This is a new location.
+      currentDepth += 1;
+      depthString = buildDepthString(currentDepth, previousDepths);
+      // Initialize object tracking for new depth.
+      returnObj[depthString] = {keyword_array: []};
+    } else if (keyword == ')') {
+      // Query depth decreases by one step. This is not a new instance
+      //   of the previous depth however, so take care when rebuilding the
+      //   string indicating current depth.
+      depthString = buildDepthString(currentDepth - 1, previousDepths);
+      previousDepths.push(currentDepth);
+      currentDepth -= 1;
+    } else {
+      returnObj[depthString].keyword_array.push(keywordsPlusBrackets[i]);
+    }
+  }
+
+  return returnObj;
+}
+
+
+function FindKeywordIssuesPerLevel(keywordsPerLevel) {
+  const expectedOrder = ['with', 'select', 'from', 'join', 'on',
+                         'where', 'group by', 'having', 'order by'];
+  let foundIssues = {};
+  console.log(keywordsPerLevel);
+
+  // For every level, check all keywords that appear. For every keyword,
+  //   check if any of the keywords before it either incorrectly appeared
+  //   before that keyword, or if the same keyword appeared before already.
+  for (let levelName in keywordsPerLevel) {
+    // console.log(levelName);
+    let keywordList = keywordsPerLevel[levelName].keyword_array;
+    // seenKeywordData structure:
+    // seenKeywordData.keywordsExpectedIndex = [keyword, indexInQuery]
+    let seenKeywordData = {};
+    for (let i in keywordList) {
+      let keyword = keywordList[i][0];
+      let keywordIndex = expectedOrder.indexOf(keyword);
+      
+      // console.log('Log time.' + '\n'
+      //             + 'levelName: ' + levelName + '\n'
+      //             + 'keywordList: ' + keywordList + '\n'
+      //             + 'i: ' + i + '\n'
+      //             + 'keywordList[i]: ' + keywordList[i] + '\n'
+      //             + 'keyword: ' + keyword + '\n'
+      //             + 'keywordIndex: ' + keywordIndex);
+      
+      if (keywordIndex === -1) {
+        // This should be impossible in normal use of the function.
+        throw Error('Unknown keyword in level ' + levelName + ': ' + keyword);
+      }
+
+      // Check if any of the previously seen keywords are supposed to come
+      //   later than this one. If so, something is out of order.
+      for (let seenKeywordIndex in seenKeywordData) {
+        if (keywordIndex < seenKeywordIndex) {
+          // A keyword was seen before that is supposed to come after
+          //   the keyword we are looking at now. Create new error tracker
+          //   if not already present, and log this occurrence. For now,
+          //   consider the "early" word the mistake (may later be corrected).
+          if (typeof foundIssues[levelName] === 'undefined') {
+            foundIssues[levelName] = [];
+          }
+
+          let issue = {mistakeWord: [seenKeywordIndex, seenKeywordData[seenKeywordIndex]],
+                       detectedAtKeyword: [keywordIndex, keywordList[i]]};
+          foundIssues[levelName].push(issue);
+        } else if (keywordIndex === seenKeywordIndex) {
+          // Another copy of keyword found.
+          // NOTE: If there are more than two copies of the same keyword are
+          //   seen, this only tracks the first seen copy. If something appears
+          //   more than twice, the issue is likely not something currently in
+          //   scope to track and correct.
+          if (typeof foundIssues[levelName] === 'undefined') {
+            foundIssues[levelName] = [];
+          }
+
+          let issue = {mistakeWord: [seenKeywordIndex, seenKeywordData[seenKeywordIndex]],
+                       detectedAtKeyword: [keywordIndex, keywordList[i]]};
+          foundIssues[levelName].push(issue);
+        }
+        // else: everything is fine, no issue to track
+      }
+
+      // Track the keyword that was just seen and processed.
+      seenKeywordData[keywordIndex] = keywordList[i];
+      // console.log(seenKeywordData);
+      // console.log('Log part 2.' + '\n'
+      //             + 'seenKeywordData above.' + '\n'
+      //             + 'seenKeywordData[keywordIndex]: ' + seenKeywordData[keywordIndex] + '\n');
+    }
+
+    // console.log(foundIssues);
+
+    // for (let levelName in foundIssues) {
+    //   for (let errorIndex in foundIssues[levelName]) {
+    //     console.log('mistakeWord - keyword expected index: '
+    //                                + foundIssues[levelName][errorIndex].mistakeWord[0]
+    //                          + ' | keyword array: ' 
+    //                                + foundIssues[levelName][errorIndex].mistakeWord[1] + '\n'
+    //                 + 'detectedAtKeyword - keyword expected index: ' 
+    //                                        + foundIssues[levelName][errorIndex].detectedAtKeyword[0]
+    //                                  + ' | keyword array: '
+    //                                        + foundIssues[levelName][errorIndex].detectedAtKeyword[1]);
+    //   }
+    // }
+
+    // Example of structure now, from logging:
+    // console.log
+    //   {
+    //     level_0_0: [
+    //       { mistakeWord: [Array], detectedAtKeyword: [Array] },
+    //       { mistakeWord: [Array], detectedAtKeyword: [Array] },
+    //       { mistakeWord: [Array], detectedAtKeyword: [Array] }
+    //     ]
+    //   }
+
+    //     at log (sqlvis/visualize.js:43982:13)
+
+    // console.log
+    //   mistakeWord - keyword expected index: 6 | keyword array: group by,0
+    //   detectedAtKeyword - keyword expected index: 1 | keyword array: select,17
+
+    //     at log (sqlvis/visualize.js:43986:17)
+
+    // console.log
+    //   mistakeWord - keyword expected index: 6 | keyword array: group by,0
+    //   detectedAtKeyword - keyword expected index: 2 | keyword array: from,46
+
+    //     at log (sqlvis/visualize.js:43986:17)
+
+    // console.log
+    //   mistakeWord - keyword expected index: 6 | keyword array: group by,0
+    //   detectedAtKeyword - keyword expected index: 5 | keyword array: where,80
+
+
+
+
+    // TODO: If there are errors tracked, find what is wrong exactly instead
+    //       of reporting every out of order bit.
+    
+
+    // Thought: instead of the currently suggested error reporting, report
+    //          using a list of objects that each have:
+    //   - 'move' attr -> the thing that should be changed
+    //   - 'after' attr (opt) -> the thing it should be put directly behind
+    //          (we'll figure out the logistics of how exactly later)
+    //   - 'rename' attr (opt) -> what to rename the keyword itself to
+  }
+
+  return foundIssues;
+}
+
+
+function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
+  /*
+    ====================================================================
+    VERY VERY BIG TODO: THIS ENTIRE FUNCTION IS COMPLETELY UNTESTED!!
+    I DO NOT KNOW IF THIS WORKS AS INTENDED, AND IT LIKELY DOESN'T EVEN
+    RUN IF YOU TRY RIGHT NOW. WORK IN PROGRESS!
+    ====================================================================
+  */
+
+  // Track using a copy, so that mistakeList[arrayIndex] itself
+  //   can safely be modified or even deleted.
+  const currentMainMistake = [...mistakeList[arrayIndex]];
+  const mainMistakeWordIndex = currentMainMistake.mistakeWord[0];
+  const mainDetectedAtIndex = currentMainMistake.detectedAtKeyword[0];
+  // The locations uniquely identify a keyword in a query.
+  const mainMistakeWordLocation = currentMainMistake.mistakeWord[1][1];
+  const mainDetectedAtLocation = currentMainMistake.detectedAtKeyword[1][1];
+  
+  if (mainDetectedAtIndex === mainMistakeWordIndex) {
+    // The "main mistake" found was a reappearing keyword. If that is found
+    //   multiple times within the same subquery a keyword is used thrice or
+    //   more, which is a mistake outside of the current scope. Continue.
+    if (arrayIndex + 1 < mistakeList.length) {
+      return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
+    }
+  }
+  // Else: mainDetectedAtIndex < mainMistakeWordIndex, because that is the only
+  //   other way an error can get into the mistakeList.
+
+  let sameMistakeWord = [{'detectedAtKeyword_index': mainDetectedAtIndex,
+                          'mistakeIndex': arrayIndex}];
+  let sameDetectedAtWord = [{'mistakeWord_index': mainMistakeWordIndex,
+                             'mistakeIndex': arrayIndex}];
+  
+  for (let mistakeIndex = arrayIndex+1; i < mistakeList.length; i++) {
+    // Only look forward, since everything before this is guaranteed to be
+    //   unrelated (if it was, this mistake would have been removed already).
+
+    // Identify relevant mistakes by keyword location in query, as a
+    //   reappearing keyword could otherwise throw things off.
+    if (mistakeList[mistakeIndex].mistakeWord[1][1] === mainMistakeWordLocation) {
+      // This mistake relates to the same mistakeWord ('too early' keyword).
+      // This indicates the mainMistakeWord may be appearing too early.
+      sameMistakeWord.push({'detectedAtKeyword_index':
+                               mistakeList[mistakeIndex].detectedAtKeyword[0],
+                            'mistakeIndex': mistakeIndex});
+    }
+    else if (mistakeList[mistakeIndex].detectedAtKeyword[1][1] === mainDetectedAtLocation) {
+      // This mistake was detected while looking back from the same keyword.
+      // This indicates the mainDetectedAt keyword may be appearing too late.
+      sameDetectedAtWord.push({'mistakeWord_index': 
+                                  mistakeList[mistakeIndex].mistakeWord[0],
+                               'mistakeIndex': mistakeIndex})
+    }
+    // Else: This mistake in the list was not related to current mainMistake.
+  }
+
+  if (sameMistakeWord.length === 1 && sameDetectedAtWord.length === 1) {
+    // No mistakes in the list are related to this mainMistake. Continue.
+    if (arrayIndex + 1 < mistakeList.length) {
+      return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
+    }
+  }
+  else if (sameMistakeWord.length > sameDetectedAtWord.length) {
+    // mistakeWord appears too early.
+    // TODO: Focus on sameMistakeWord
+    
+    // TODO: Only keep the mistake with the biggest detectedAtKeyword index,
+    //       delete every other issue related to this mistakeWord from
+    //       mistakeList and do arrayIndex-- (as this mainKeywordIndex may
+    //       become what is currently the next keyword through deletions).
+    
+    // TODO 2: or keep the one with the last location? I'm not sure.
+
+    // Note: next step (outside this function) is to use that mistake as an
+    //   order to 'move mistakeWord to appear after the stated
+    //   detectedAtKeyword'. This instruction can be recognised by the index
+    //   of mistakeWord being < the index of detectedAtKeyword.
+    // (yet to figure out: how to discover at which index to insert exactly?)
+  }
+  else if (sameMistakeWord.length < sameDetectedAtWord.length) {
+    // detectedAtKeyword appears too late.
+    // TODO: Focus on sameDetectedAtWord
+    
+    // TODO: Only keep the mistake with the smallest mistakeWord index,
+    //       delete every other issue related to this DetectedAtWord from
+    //       mistakeList and do arrayIndex-- (as this mainDetectedAtIndex may
+    //       become what is currently the next keyword through deletions).
+    
+    // TODO 2: or keep the one with the last location? I'm not sure.
+
+    // Note: next step (outside this function) is to use that mistake as an
+    //   order to 'move detectedAtKeyword to appear before the stated
+    //   mistakeWord'. This instruction can be recognised by the index
+    //   of mistakeWord being < the index of detectedAtKeyword.
+    // (this will be the easier one to move, thanks to splice and knowing
+    //  where to insert).
+  }
+  else {
+    throw Error('sameMistakeWord.length === sameDetectedAtWord.length, but both '
+                + 'mistakeWord and detectedAtWord appear in other mistakes too. '
+                + 'I do not know what to do with this.');
+  }
+
+  // This function ending allows for iterating over the array while also
+  //   modifying it. (using a for loop on the array and modifying it in the
+  //   for loop does not result in the intended behavior)
+  if (arrayIndex + 1 < mistakeList.length) {
+    return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
+  }
+}
+
+function resolveIssues(query, foundIssues) {
+  // query: original query with capitals and everything
+  // foundIssues: structured as follows \/
+  //   If level present, level has issues.
+  //   level_0_0: [
+  //       { mistakeWord: [expected index, keyword array],
+  //         detectedAtKeyword: [expected index, keyword array] },
+  //       { mistakeWord: ..., detectedAtKeyword: ... },
+  //       ...
+  //   ]
+
+  // For each level
+    // Analyze: which are the keywords that must be changed?
+    // Determine the exact changes that need to be made
+  
+  // All levels mentioned in foundIssues have issues, levels not mentioned
+  //   are okay as is.
+  for (levelName in foundIssues) {
+    let mistakes = foundIssues[levelName];
+    onlyKeepBiggestMistakes(mistakes);
+  }
+
+  // TODO: how to adjust the query?
+}
+
 function attemptOrderingFix(query) {
   // High prio:
-  // TODO: multiple appearances of the same keyword in the same level
-  //         is not handled well.
-  // TODO: Subquery handling
   // TODO: WHERE -> GROUPBY if uses agg and groupby present
   // TODO: find & handle KEYWORD GROUP BY situations
   // TODO: find & handle FUNCTION(GROUP BY column) situations
@@ -43836,14 +44194,68 @@ function attemptOrderingFix(query) {
   // This is also the order in which the keywords should appear.
   const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
                           'where', 'group by', 'having', 'order by'];
+  const subqueryMarkers = ['(', ')'];
+  
+  let itemsToFind = Array.from(keywordsToFind);
+  itemsToFind.push(...subqueryMarkers);
 
-  var lowercaseQuery = query.toLowerCase();
+  let lowercaseQuery = query.toLowerCase();
+  
   // TODO: this used to return key:val with val=first occurrance.
   //   val however is now an array of all appearances.
-  // This also means sorting doesn't make sense anymore.
-  var keywordStatus = findKeywordAppearances(lowercaseQuery, keywordsToFind);
+  let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind);
+  keywordStatus.sort((a, b) => {return a[1] - b[1]});
+  // console.log(query);
+  onlyKeepSubqueryBrackets(keywordStatus);
+  
+  // console.log(keywordStatus);
+  
+  // So now it is of the form:
+  // [
+  //   [ 'select', 0 ],
+  //   [ 'from', 29 ],
+  //   [ 'where', 63 ],
+  //   [ '(', 78 ],
+  //   [ 'select', 79 ],
+  //   [ 'group by', 109 ],
+  //   [ 'from', 141 ],
+  //   [ 'having', 177 ],
+  //   [ ')', 202 ],
+  //   [ 'group by', 222 ]
+  // ]
 
-  var sortedIndices = Array.from(keywordStatus.foundIndices).sort((a, b) => {return a - b});
+  let keywordsPerLevel = findKeywordOrderAtEachLevel(keywordStatus);
+  // console.log(keywordsPerLevel);
+  // ^ function return structure: 
+  // {'level_0_0': {keyword_array: [keywords]},
+  //  'level_1_0': {keyword_array: [keywords]},
+  //  'level_1_1': {keyword_array: [keywords]}, ...}
+
+  // console.log(keywordsPerLevel);
+  // console.log('0_0')
+  // console.log(keywordsPerLevel.level_0_0.keyword_array);
+  // if (typeof keywordsPerLevel.level_1_0 !== 'undefined') {
+  //   console.log('1_0')
+  //   console.log(keywordsPerLevel.level_1_0.keyword_array);
+  // }
+  // throw Error('nee.');
+  
+
+  // Objects are modified in place
+  foundIssues = FindKeywordIssuesPerLevel(keywordsPerLevel);
+  // console.log(keywordsPerLevel);
+  //   ^ function return structure:
+  //   If level present, level has issues.
+  //   level_0_0: [
+  //       { mistakeWord: [expected index, keyword array],
+  //         detectedAtKeyword: [expected index, keyword array] },
+  //       { mistakeWord: ..., detectedAtKeyword: ... },
+  //       ...
+  //   ]
+
+  let adjusted_query = resolveIssues(query, foundIssues);
+
+  // Now do processing based on errors found per level
 
   // for (let i in keywordStatus.foundIndices) {
   //   var startOfExpectedKeyword = keywordStatus.foundIndices[i];
@@ -45994,20 +46406,14 @@ function queryTextAdjustments(query) {
 //    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
 // (+- 60 lines, there is an end comment further down)
 
+// This piece is neccessary for Node.js to understand AMD style definitions.
 if (typeof define !== 'function') {
   var define = require('amdefine')(module);
 }
 
+// This anonymous function is used to expose specific functions that can
+//   then be imported in other files by requiring this file there.
 define(function() {
-  // TODO: known issues:
-  // - Cannot use dynamic import here. That breaks Jest.
-  // - Cannot use require here. That breaks node AND Jest.
-
-  // This might be okay, as long as I really do not need
-  //   any requires or imports here at all ever.
-  // Might not be a big issue, if I use this part for test
-  //   functionality only and the things above for jupyter?
-
   var e = {};
 
   e.findThisLevelEnd = function(query) {
