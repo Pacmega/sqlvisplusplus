@@ -43696,6 +43696,23 @@ THE SOFTWARE.
                               });
 
 
+function queryTextAdjustments(query) {
+  if (typeof query !== 'string') {
+    throw Error('Input was not a query in text form (i.e. string).');
+  }
+
+  var adjusted_query = query.split(';').join('');
+  adjusted_query = adjusted_query.split('\n').join(' ');
+  adjusted_query = adjusted_query.split('\r').join(' ');
+  adjusted_query = adjusted_query.split('\s+').join(' ');
+  adjusted_query = adjusted_query.split(/[\n\r]+/g).join(' ');
+
+  adjusted_query = adjusted_query.trim();
+
+  return adjusted_query;
+}
+
+
 function allIndicesOf(searchString, matchString) {
   let matches = [];
 
@@ -43709,6 +43726,7 @@ function allIndicesOf(searchString, matchString) {
 
   return matches;
 }
+
 
 function findKeywordAppearances(query, keywordsToFind) {
   // let keywordArray = [];
@@ -43735,95 +43753,6 @@ function findKeywordAppearances(query, keywordsToFind) {
   return foundKeywords;
 }
 
-function findThisLevelEnd(query) {
-  // TODO: currently unused function, also working on its calling func.
-
-  // Receives: a subset of a query, cut after at least one opening bracket.
-  // Returns: the index within this subset where the closing bracket is found.
-
-  // TODO: untested function! Need to test this.
-  const bracketOpenedAt = query.indexOf('(');
-  let bracketClosedAt = query.indexOf(')');
-
-  if (bracketClosedAt === -1) {
-    // There is no closing bracket, this level does not appear to end.
-    return -1;
-  }
-  
-  if (bracketOpenedAt !== -1 && bracketOpenedAt < bracketClosedAt) {
-    // At least one extra set of brackets is opened and closed within
-    //   this level. Our closing bracket must occur after that.
-    let endOfBracketSet = findThisLevelEnd(query.slice(bracketOpenedAt + 1));
-    if (endOfBracketSet === -1) {
-      // The deeper layer of brackets is never closed. That means this level 
-      //   cannot possibly be closed either, and this query has a problem.
-      return -1;
-    }
-    // We know where that set of brackets ends, now continue looking from
-    //   past that end to find the closing bracket.
-    bracketClosedAt = findThisLevelEnd(query.slice(endOfBracketSet + 1));
-  }
-  
-  // If/when this point is reached (at any level of recursion), either a
-  //   closing bracket was found without an opening bracket in front of it,
-  //   which means this closing bracket ends this query level, or no closing
-  //   bracket was found for this level at all which means we found a problem.
-  return bracketClosedAt;
-}
-
-
-function subsetQueryToLevelAtIndex(query, index) {
-  // Find the level of this index
-  const queryUpToIndex = query.slice(0, index);
-  const openingBracketsBefore = allIndicesOf(queryUpToIndex, '(')
-  const closingBracketsBefore = allIndicesOf(queryUpToIndex, ')')
-
-  const queryFromIndex = query.slice(index);
-  const openingBracketsAfter = allIndicesOf(queryFromIndex, '(')
-  const closingBracketsAfter = allIndicesOf(queryFromIndex, ')')
-
-  // If the start of queryFromIndex is not the opening bracket we are trying
-  //   to find the closing bracket for, behavior is slightly different.
-  const charAtIndex = query[index];
-  const levelStartsAtIndex = (charAtIndex === '(' ? true : false);
-
-  const currentLevel = openingBracketsBefore.length - closingBracketsBefore.length;
-
-  // Context checking for query subsetting
-  if (currentLevel === 0 && !levelStartsAtIndex) {
-    // We are at the top level here. There is no subsetting to perform.
-    return query;
-  }
-
-  let locationOfOpeningBracket;
-  // Find the start of this level, so that we can slice from there.
-  if (levelStartsAtIndex) {
-    locationOfOpeningBracket = index;
-  } else {
-    locationOfOpeningBracket = queryUpToIndex.lastIndexOf('(');
-  }
-  
-  // Find the end of this level, so that we can slice until there.
-  const bracketEndingLevelIndex = closingBracketsAfter.length - openingBracketsAfter.length
-                                  - Number(levelStartsAtIndex);
-  
-  let locationOfClosingBracket = closingBracketsAfter[bracketEndingLevelIndex];
-  if (typeof locationOfClosingBracket === 'undefined') {
-    throw Error('No closing bracket found for query level subsetting of query for level at '
-                + 'char index ' + index + '! Query: \n' + query);
-  }
-
-  // Since this location is based on a string slice, add the number of chars
-  //   that were before the slice to find the index in the original string.
-  locationOfClosingBracket += index;
-  
-  // const endOfThisLevel = locationOfOpeningBracket + findLevelEnd(query.slice(index));
-
-  // Slice is inclusive at the start, +1 to avoid bringing the opening bracket.
-  // It is exclusive at the end, so the closing bracket is left out automatically.
-  const subquery = query.slice(locationOfOpeningBracket+1, locationOfClosingBracket);
-  return subquery
-}
 
 function onlyKeepSubqueryBrackets(keywordStatus) {
   let lastItemOpenBracket = false;
@@ -43860,9 +43789,133 @@ function onlyKeepSubqueryBrackets(keywordStatus) {
 }
 
 
+function addKeywordEndings(keywordStatus, totalQueryLength) {
+  /*
+  =====================================
+          The usual big issue:
+    UNTESTED AT THE MOMENT! Not sure
+         if this will even run.
+  =====================================
+  */
+
+  // So now it is of the form:
+  // [
+  //   [ 'select', 0 ],
+  //   [ 'from', 29 ],
+  //   [ 'where', 63 ],
+  //   [ '(', 78 ],
+  //   [ 'select', 79 ],
+  //   [ 'group by', 109 ],
+  //   [ 'from', 141 ],
+  //   [ 'having', 177 ],
+  //   [ ')', 202 ],
+  //   [ 'group by', 222 ]
+  // ]
+  // To copy paste:
+  // let keywordStatus = [['select',0],['from',29],['where',63],['(',78],['select',79],['groupby',109],['from',141],['having',177],[')',202],['groupby',222]]
+
+  ongoingKeywords = []
+  ongoingBrackets = []
+
+  for (let keywordIndex in keywordStatus) {
+    let keyword = keywordStatus[keywordIndex];
+
+    if (keywordIndex === 0) {
+      // The first keyword has nothing in front of it, so needs slightly
+      //   different logic because there is no ongoing keyword to work with.
+      ongoingKeywords.push(keyword);
+      continue;
+    }
+
+    if (keyword[0] === '(') {
+      // We have a new ongoing open bracket to track.
+      ongoingBrackets.push(keyword);
+    }
+    else {
+      // This is either a ) or a keyword.
+      let mostRecentBracket = ongoingBrackets[ongoingBrackets.length - 1];
+      let mostRecentOngoingKeyword = ongoingKeywords[ongoingKeywords.length - 1];
+
+      if (keyword[0] === ')') {
+        // This is itself a closing bracket. Its start = its end.
+        keyword.push(keyword[1]);
+
+        // Most recent bracket can also be closed, and ends at this bracket.
+        if (ongoingBrackets.length === 0) {
+          throw Error('Bracket closed after keyword ' 
+                      + mostRecentOngoingKeyword[0] + ' at char index '
+                      + mostRecentOngoingKeyword[1] + ' that was never opened.');
+        }
+
+        if (mostRecentOngoingKeyword[1] > mostRecentBracket[1]) {
+          // A keyword is ongoing within this set of brackets, close that
+          //   ongoing keyword first. It ends just before this bracket.
+          mostRecentOngoingKeyword.push(keyword[1] - 1);
+          ongoingKeywords.pop();
+        }
+        
+        mostRecentBracket.push(keyword[1]);
+        ongoingBrackets.pop();
+      }
+      else {
+        // This is a keyword. If the last thing we saw was a keyword and not an 
+        //   opening bracket, that keyword ends here (if it was a bracket, this
+        //   is the start of a new subquery).
+        let lastSeenItem = keywordStatus[keywordIndex - 1];
+        if (lastSeenItem[0] === '(') {
+          // Similar to the original start of the query, this is the first keyword
+          //   of a subquery again so needs different logic again.
+          ongoingKeywords.push(keyword);
+        }
+        else {
+          // This is a keyword, and not the first keyword of a new subquery. 
+          // End the previous keyword one character before the start of this one.
+          mostRecentOngoingKeyword.push(keyword[1] - 1);
+          ongoingKeywords.pop();
+
+          // Now keep track of this word itself.
+          ongoingKeywords.push(keyword);
+        }
+      }
+    }
+  }
+
+  // After the for loop, there should be no more open brackets remaining but
+  //   one more ongoing keyword. There was after all no subsequent keyword on
+  //   which this algorithm would have closed that one. This last keyword ends
+  //   where the query ends.
+
+  // Any ongoing things at end of query still means unclosed brackets.
+  if (ongoingBrackets.length !== 0) {
+    let unclosedBracketIndices = [];
+    for (let index in ongoingBrackets) {
+      unclosedBracketIndices.push(ongoingBrackets[index][1]);
+    }
+    
+    throw Error('Unclosed bracket (-s) in query at character indices:'
+                + unclosedBracketIndices);
+  }
+
+  if (ongoingKeywords.length !== 1) {
+    let unclosedKeywordIndices = [];
+    for (let index in ongoingKeywords) {
+      unclosedKeywordIndices.push(ongoingKeywords[index][1]);
+    }
+
+    throw Error('Not exactly one keyword not closed properly. An unclosed '
+                + 'subquery should be caught at the bracket error, so not '
+                + 'sure what is going on here. Unclosed keywords start at '
+                + ' character indices: ' + unclosedKeywordIndices);
+  }
+
+  let lastKeyword = ongoingKeywords.pop();
+  lastKeyword.push(totalQueryLength - 1);
+}
+
+
 function buildDepthString(currentDepth, previousDepths) {
   let counter = 0;
-// (let i in keywordStatus.foundIndices)
+
   for (let i in previousDepths) {
     if (previousDepths[i] == currentDepth) {
       counter++;
@@ -43908,7 +43961,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
 }
 
 
-function FindKeywordIssuesPerLevel(keywordsPerLevel) {
+function findKeywordIssuesPerLevel(keywordsPerLevel) {
   const expectedOrder = ['with', 'select', 'from', 'join', 'on',
                          'where', 'group by', 'having', 'order by'];
   let foundIssues = {};
@@ -44107,15 +44160,51 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   }
   else if (sameMistakeWord.length > sameDetectedAtWord.length) {
     // mistakeWord appears too early.
-    // TODO: Focus on sameMistakeWord
-    
-    // TODO: Only keep the mistake with the biggest detectedAtKeyword index,
-    //       delete every other issue related to this mistakeWord from
-    //       mistakeList and do arrayIndex-- (as this mainKeywordIndex may
-    //       become what is currently the next keyword through deletions).
-    
-    // TODO 2: or keep the one with the last location? I'm not sure.
+    let biggestMistakeWord = {'detectedAtKeyword_index': -1,
+                              'mistakeIndex': -1};
+    let mistakeIndicesToDrop = [];
 
+    // Find which mistake has the largest detectedAtKeyword index, so that we
+    //   can keep only that one and remove the others. The biggest needed move
+    //   will also satisfy the smaller moves in the same direction.
+    for (let index in sameMistakeWord) {
+      if (sameMistakeWord[index].detectedAtKeyword_index > 
+              biggestMistakeWord.detectedAtKeyword_index) {
+        // New biggest error, replace the previous record and mark for removal.
+        if (biggestMistakeWord.mistakeIndex !== -1) {
+          mistakeIndicesToDrop.push(biggestMistakeWord.mistakeIndex);
+        }
+        biggestMistakeWord = sameMistakeWord[index];
+      }
+      else {
+        // Correcting this mistake would give a smaller move than the biggest
+        //   one we need, meaning multiple moves would be needed.
+        mistakeIndicesToDrop.push(sameMistakeWord[index].mistakeIndex);
+      }
+    }
+
+    // Move the biggest found mistake to where the current main mistake is, and
+    //   remove all the other smaller related mistake logs. Remove from back to
+    //   front, to not affect the indices to remove.
+    // TODO: or keep the one with the last location? I'm not sure.
+    mistakeIndicesToDrop.sort((a,b) => b - a);
+    mistakeList[arrayIndex] = [...biggestMistakeWord.mistakeIndex];
+    for (let indexInDropList in mistakeIndicesToDrop) {
+      // This removes the item from the list in place, modifying mistakeList.
+      // TODO/NOTE: see TODO below, it would have an effect here (if statement)
+      indexToDrop = mistakeIndicesToDrop[indexInDropList];
+      mistakeList.splice(indexToDrop, 1);
+    }
+
+    // After removal, call from this same place in the array again to be safe
+    //   and check the biggest item again to ensure it has no other connections
+    //   with other mistakes that should also be taken into account.
+    // TODO: if it does, and this gets replaced again... that may be a problem.
+    //       should I add a flag replaceCurrentIndex with default=True, called
+    //       from here with replaceCurrentIndex=false so that the item that is
+    //       to be replaced is instead moved to the end of the array? Maybe.
+    return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
+    
     // Note: next step (outside this function) is to use that mistake as an
     //   order to 'move mistakeWord to appear after the stated
     //   detectedAtKeyword'. This instruction can be recognised by the index
@@ -44125,13 +44214,50 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   else if (sameMistakeWord.length < sameDetectedAtWord.length) {
     // detectedAtKeyword appears too late.
     // TODO: Focus on sameDetectedAtWord
+    let smallestDetectedAtWord = {'mistakeWord_index': Infinity,
+                                  'mistakeIndex': Infinity};
+    let mistakeIndicesToDrop = [];
+
+    // Find which mistake has the smallest mistakeWord index, so that we
+    //   can keep only that one and remove the others. The biggest needed move
+    //   (forward, now) will also satisfy smaller moves in the same direction.
+    for (let index in sameDetectedAtWord) {
+      if (sameDetectedAtWord[index].mistakeWord_index < 
+              smallestDetectedAtWord.mistakeWord_index) {
+        // New biggest error, replace the previous record and mark for removal.
+        if (smallestDetectedAtWord.mistakeIndex !== Infinity) {
+          mistakeIndicesToDrop.push(smallestDetectedAtWord.mistakeIndex);
+        }
+        smallestDetectedAtWord = sameDetectedAtWord[index];
+      }
+      else {
+        // Correcting this mistake would give a smaller move than the biggest
+        //   one we need, meaning multiple moves would be needed.
+        mistakeIndicesToDrop.push(sameDetectedAtWord[index].mistakeIndex);
+      }
+    }
     
-    // TODO: Only keep the mistake with the smallest mistakeWord index,
-    //       delete every other issue related to this DetectedAtWord from
-    //       mistakeList and do arrayIndex-- (as this mainDetectedAtIndex may
-    //       become what is currently the next keyword through deletions).
-    
-    // TODO 2: or keep the one with the last location? I'm not sure.
+    // Move the biggest found mistake to where the current main mistake is, and
+    //   remove all the other smaller related mistake logs. Remove from back to
+    //   front, to not affect the indices to remove.
+    // TODO: or keep the one with the last location? I'm not sure.
+    mistakeIndicesToDrop.sort((a,b) => b - a);
+    mistakeList[arrayIndex] = [...smallestDetectedAtWord.mistakeIndex];
+    for (let indexInDropList in mistakeIndicesToDrop) {
+      // This removes the item from the list in place, modifying mistakeList.
+      // TODO/NOTE: see TODO below, it would have an effect here (if statement)
+      indexToDrop = mistakeIndicesToDrop[indexInDropList];
+      mistakeList.splice(indexToDrop, 1);
+    }
+
+    // After removal, call from this same place in the array again to be safe
+    //   and check the biggest item again to ensure it has no other connections
+    //   with other mistakes that should also be taken into account.
+    // TODO: if it does, and this gets replaced again... that may be a problem.
+    //       should I add a flag replaceCurrentIndex with default=True, called
+    //       from here with replaceCurrentIndex=false so that the item that is
+    //       to be replaced is instead moved to the end of the array? Maybe.
+    return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
 
     // Note: next step (outside this function) is to use that mistake as an
     //   order to 'move detectedAtKeyword to appear before the stated
@@ -44154,42 +44280,134 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   }
 }
 
-function resolveIssues(query, foundIssues) {
-  // query: original query with capitals and everything
-  // foundIssues: structured as follows \/
-  //   If level present, level has issues.
-  //   level_0_0: [
-  //       { mistakeWord: [expected index, keyword array],
-  //         detectedAtKeyword: [expected index, keyword array] },
-  //       { mistakeWord: ..., detectedAtKeyword: ... },
-  //       ...
-  //   ]
 
-  // For each level
-    // Analyze: which are the keywords that must be changed?
-    // Determine the exact changes that need to be made
+function retrieveKeywordIfPresent(keywordArray, keywordToFind) {
+  for (let index in keywordArray) {
+    let keywordInfo = keywordArray[index];
+    if (keywordInfo[0] === keywordToFind) {
+      return keywordInfo;
+    }
+  }
+  return -1;
+}
+
+
+function forcedReordering(query, keywordsPerLevel) {
+  /*
+  =====================================
+          The usual big issue:
+    UNTESTED AT THE MOMENT! Not sure
+         if this will even run.
+  =====================================
+  */
   
-  // All levels mentioned in foundIssues have issues, levels not mentioned
-  //   are okay as is.
-  for (levelName in foundIssues) {
-    let mistakes = foundIssues[levelName];
-    onlyKeepBiggestMistakes(mistakes);
+  // Expected order: the standard list
+  const keywordsOrderPerLevel = ['with', 'select', 'from', 'join', 'on',
+                                 'where', 'group by', 'having', 'order by'];
+
+  // This works from deepest (and last) subquery level up, meaning that it is
+  //   safe to move things around: the number of characters in the subquery
+  //   does not change, and the subquery itself is not moved by moving its
+  //   components within the subquery. This way, each edit is safe to make.
+
+  // reverse sorted levels, deepest first
+  let levelsReverseOrdered = Object.keys(keywordsPerLevel);
+  levelsReverseOrdered.sort().reverse();
+
+  // begin & end of each keyword known
+  // Starting from deepest & last subquery, forced reordering:
+  // grab every keyword's pieces, and force them into the right
+  // locations. Plan:
+
+  let reorganizedQuery = [];
+  for (let levelIndex in levelsReverseOrdered) {
+    let levelName = levelsReverseOrdered[levelIndex];
+    let levelKeywords = keywordsPerLevel[levelName];
+    let reorganizedQueryLevel = [];
+
+    // ===== Safeguarding components =====
+    // I can remove the things between these == once everything works
+    // TODO: remove safeguards
+    // endLocation = index of last char, should do +1 for slicing
+    let startLocation = levelKeywords[0][1];
+    let endLocation = levelKeywords[levelKeywords.length-1][2];
+    let levelLength = endLocation - startLocation;
+    // ===================================
+
+    for (let keywordIndex in keywordsOrderPerLevel) {
+      let expectedKeyword = keywordsOrderPerLevel[keywordIndex];
+      let keywordInfo = retrieveKeywordIfPresent(levelKeywords, expectedKeyword);
+      if (keywordInfo !== -1) {
+        // Grab the corresponding component for this (sub-) query
+        //   from the original query, to put in the right place.
+        let queryComponent = query.slice(keywordInfo[1], keywordInfo[2] + 1);
+        reorganizedQueryLevel.push(queryComponent);
+      }
+    }
+
+    reorganizedQueryLevel = reorganizedQueryLevel.join('');
+
+    // ===== Safeguarding components =====
+    // TODO: remove safeguards
+    if (levelLength !== reorganizedQueryLevel.length) {
+      throw Error('reorganizedQueryLevel length does not match the original level! '
+                  + 'Original should have length ' + levelLength + ', but '
+                  + 'reorganization has length ' + reorganizedQueryLevel.length
+                  + '.\n\n Query in question: ' + query
+                  + '\nIntended level slice: ' + query.slice(startLocation, endLocation+1)
+                  + '\nCreated reorganization: ' + reorganizedQueryLevel);
+    }
+    // ===================================
+
+    reorganizedQuery.push(reorganizedQueryLevel);
   }
 
-  // TODO: how to adjust the query?
+  reorganizedQuery = reorganizedQuery.join('');
+
+  // ===== Safeguarding components =====
+  // TODO: remove safeguards
+  if (query.length !== reorganizedQuery.length) {
+    throw Error('reorganizedQuery length does not match the original! '
+                + 'Original should have length ' + levelLength + ', but '
+                + 'reorganization has length ' + reorganizedQuery.length
+                + '.\n\n Original query in question: ' + query
+                + '\nCreated reorganization: ' + reorganizedQuery);
+  }
+  // ===================================
+
+  // for query level:
+    // store start & end char indices of level
+    // let reorganizedQueryLevel = []
+    // for keyword in expectedOrderArray:
+      // if keyword is in query level:
+        // grab query slice for that whole keyword
+        // reorganizedQueryLevel.push(query slice)
+    // use reorganizedQueryLevel to build new subquery level string
+    // if length not same at original end-start, throw error because I fucked up
+    // query[levelStart:levelEnd] = reorganizedQueryLevel.join('')
+
+  // Now reorganization should be done, I think
+  
+  // TODO: though I do wonder... what happened to repeated keywords again?
+
+  return reorganizedQuery;
 }
+
 
 function attemptOrderingFix(query) {
   // High prio:
-  // TODO: WHERE -> GROUPBY if uses agg and groupby present
+  // TODO: WHERE -> HAVING if the "WHERE" uses agg
+  //    -> Should be detected and changed early on
+  //    -> Repeated keywords are not handled well by forcedReordering
   // TODO: find & handle KEYWORD GROUP BY situations
+  //    -> from thesis: keyword immediately followed by group by -> group_by_[column]
   // TODO: find & handle FUNCTION(GROUP BY column) situations
 
   // Lower prio:
-  // TODO: intentionally neglecting UNION for now, because it
+  // TODO: intentionally ignoring UNION for now, because it
   //   makes things more complicated.
-  // TODO: need to add the different join types in a way that just 'join'
-  //   doesn't trigger on every single one.
+  // TODO: may need to add the different join types in a way that
+  //   just 'join' doesn't trigger on every single one.
   
   // This is also the order in which the keywords should appear.
   const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
@@ -44201,15 +44419,12 @@ function attemptOrderingFix(query) {
 
   let lowercaseQuery = query.toLowerCase();
   
-  // TODO: this used to return key:val with val=first occurrance.
-  //   val however is now an array of all appearances.
   let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind);
   keywordStatus.sort((a, b) => {return a[1] - b[1]});
   // console.log(query);
+
   onlyKeepSubqueryBrackets(keywordStatus);
-  
   // console.log(keywordStatus);
-  
   // So now it is of the form:
   // [
   //   [ 'select', 0 ],
@@ -44222,6 +44437,21 @@ function attemptOrderingFix(query) {
   //   [ 'having', 177 ],
   //   [ ')', 202 ],
   //   [ 'group by', 222 ]
+  // ]
+
+  addKeywordEndings(keywordStatus, query.length);
+  // Now it SHOULD BE of the form:
+  // [
+  //   [ 'select', 0, 28 ],
+  //   [ 'from', 29, 62 ],
+  //   [ 'where', 63, 221 ],
+  //   [ '(', 78, 202 ],
+  //   [ 'select', 79, 108 ],
+  //   [ 'group by', 109, 140 ],
+  //   [ 'from', 141, 176 ],
+  //   [ 'having', 177, 201 ],
+  //   [ ')', 202, 202 ],
+  //   [ 'group by', 222, (whatever the end of this query is) ]
   // ]
 
   let keywordsPerLevel = findKeywordOrderAtEachLevel(keywordStatus);
@@ -44240,9 +44470,10 @@ function attemptOrderingFix(query) {
   // }
   // throw Error('nee.');
   
+  foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
+  // NOTE: duplicate keywords are detected as issues here, and should
+  //   only be corrected (if possible) after this point.
 
-  // Objects are modified in place
-  foundIssues = FindKeywordIssuesPerLevel(keywordsPerLevel);
   // console.log(keywordsPerLevel);
   //   ^ function return structure:
   //   If level present, level has issues.
@@ -44253,7 +44484,28 @@ function attemptOrderingFix(query) {
   //       ...
   //   ]
 
-  let adjusted_query = resolveIssues(query, foundIssues);
+  // Either here or after onlyKeepBiggestMistakes, repeated keywords
+  //   must be handled. Cannot handle that in forcedReordering.
+
+  // All levels mentioned in foundIssues have issues, levels not mentioned
+  //   are okay as is. Clean up the collection so that it only contains
+  //   the real mistakes, and not also every smaller version of them.
+  for (levelName in foundIssues) {
+    let mistakes = foundIssues[levelName];
+    onlyKeepBiggestMistakes(mistakes);
+  }
+
+  // Attempt to actually repair the query.
+  reorganizedQuery = forcedReordering(query, keywordsPerLevel);
+
+  return {'reorganizedQuery': reorganizedQuery,
+          'foundIssues': foundIssues};
+
+  
+
+
+
+
 
   // Now do processing based on errors found per level
 
@@ -44324,10 +44576,11 @@ function attemptOrderingFix(query) {
   // TODO: keep & return changelog of adjustments
 
   // TODO: GROUP BY -> WHERE with agg = where should be having
-  // TODO: as described in thesis: keyword immediately followed by group by -> group_by_[column]
+  // TODO: 
 
   return rebuiltQuery;
 }
+
 
 function parseQuery(query) {
   // Generate the AST.
@@ -44339,7 +44592,12 @@ function parseQuery(query) {
     var ast = parse_sql(query);
   } catch (e) {
     console.log('Query contained errors that make it unparseable. Attempting repairs.');
-    var fixed_query = attemptOrderingFix(query);
+    var orderingFixResults = attemptOrderingFix(query);
+    
+    // TODO: foundIssues is currently not actually used.
+    var fixed_query = orderingFixResults.reorganizedQuery;
+    var foundIssues = orderingFixResults.foundIssues;
+    
     var ast = parse_sql(fixed_query);
   }
 
@@ -44351,9 +44609,8 @@ var levelsWithErrors = [];
 function visualize(query, schema, container, d3) {
   originalSchema = schema;
   currentSchema = schema;
+
   // Strip ; from the query as this will cause errors in the AST generation.
-  // TODO: this should probably be Python-sided, considering Python also has 
-  //   the rest of the query cleanup. Or it should all be here instead.
   var stripped_query = query.replace(/;/, '');
 
   try {
@@ -44459,8 +44716,8 @@ function mergeLinks(links) {
 /**
 * A function to remove most of the unneccessary data, changing it into a more easily processable object.
 *
-* @param cons 		The conditions in an array of objects with many keys and values.
-* @returns result 	An array of the shape [{table: {condition: value}}]
+* @param cons     The conditions in an array of objects with many keys and values.
+* @returns result   An array of the shape [{table: {condition: value}}]
 */
 function processConditions(cons, nodes) {
   var result = {};
@@ -44540,9 +44797,9 @@ function drawGraph(vertices, links, container, d3, schema) {
       if (vertex.isHighlighted) {
         vertexLabel = vertex.label + ' <b class=\'erroredAlias\'>' + vertex.alias + '</b>';
       } else {
-        vertexLabel = vertex.label + ' <b class=\'alias\'>' + vertex.alias + '</b>';	
+        vertexLabel = vertex.label + ' <b class=\'alias\'>' + vertex.alias + '</b>';  
       vertexLabel = vertex.label + ' <b class=\'alias\'>' + vertex.alias + '</b>';
-        vertexLabel = vertex.label + ' <b class=\'alias\'>' + vertex.alias + '</b>';	
+        vertexLabel = vertex.label + ' <b class=\'alias\'>' + vertex.alias + '</b>';  
       }
     }
 
@@ -44732,8 +44989,8 @@ function drawGraph(vertices, links, container, d3, schema) {
 
 
   // Tooltip
-  var div = d3.select("body").append("div")	
-      .attr("class", "tooltip")				
+  var div = d3.select("body").append("div") 
+      .attr("class", "tooltip")       
       .style("opacity", 0);
 
   var svg = container.select('svg');
@@ -44756,18 +45013,18 @@ function drawGraph(vertices, links, container, d3, schema) {
     .on("mouseover", function(d) {
       var errorValue = errorDict[[d.v, d.w]];
       if (errorValue) {
-        div.transition()		
-          .duration(200)		
-          .style("opacity", .9);		
-        div	.html("<b>" + errorValue.header + "</b> <br/>" + errorValue.message)	
-          .style("left", (d3.event.pageX) + "px")		
+        div.transition()    
+          .duration(200)    
+          .style("opacity", .9);    
+        div .html("<b>" + errorValue.header + "</b> <br/>" + errorValue.message)  
+          .style("left", (d3.event.pageX) + "px")   
           .style("top", (d3.event.pageY - 28) + "px");
       }
-      })					
-    .on("mouseout", function(d) {		
-      div.transition()		
-        .duration(500)		
-        .style("opacity", 0);	
+      })          
+    .on("mouseout", function(d) {   
+      div.transition()    
+        .duration(500)    
+        .style("opacity", 0); 
     });
 
   // Center the graph
@@ -44783,7 +45040,7 @@ function drawGraph(vertices, links, container, d3, schema) {
     var node = nodesToExpand[n];
     var graphNode = graph.node(node);
     graphNode.toHighlight = true;
-    console.log("Trying to expand node: ", node);		
+    console.log("Trying to expand node: ", node);   
     expand(graphNode, node, d3, false);
     inner.attr('transform', null);
     render(inner, graph);
@@ -44820,36 +45077,36 @@ function drawGraph(vertices, links, container, d3, schema) {
     .on("mouseover", function(d) {
       var node = graph.node(d);
       if (node.errorInfo) {
-        div.transition()		
-          .duration(200)		
-          .style("opacity", .9);		
-        div	.html("<b>" + node.errorInfo.header + "</b> <br/>" + node.errorInfo.message)	
-          .style("left", (d3.event.pageX) + "px")		
+        div.transition()    
+          .duration(200)    
+          .style("opacity", .9);    
+        div .html("<b>" + node.errorInfo.header + "</b> <br/>" + node.errorInfo.message)  
+          .style("left", (d3.event.pageX) + "px")   
           .style("top", (d3.event.pageY - 28) + "px");
       }
-      })					
-    .on("mouseout", function(d) {		
-      div.transition()		
-        .duration(500)		
-        .style("opacity", 0);	
+      })          
+    .on("mouseout", function(d) {   
+      div.transition()    
+        .duration(500)    
+        .style("opacity", 0); 
     });
   
   svg.selectAll('g.cluster')
     .on("mouseover", function(d) {
       var node = graph.node(d);
       if (node.errorInfo) {
-        div.transition()		
-          .duration(200)		
-          .style("opacity", .9);		
-        div	.html("<b>" + node.errorInfo.header + "</b> <br/>" + node.errorInfo.message)	
-          .style("left", (d3.event.pageX) + "px")		
+        div.transition()    
+          .duration(200)    
+          .style("opacity", .9);    
+        div .html("<b>" + node.errorInfo.header + "</b> <br/>" + node.errorInfo.message)  
+          .style("left", (d3.event.pageX) + "px")   
           .style("top", (d3.event.pageY - 28) + "px");
       }
-      })					
-    .on("mouseout", function(d) {		
-      div.transition()		
-        .duration(500)		
-        .style("opacity", 0);	
+      })          
+    .on("mouseout", function(d) {   
+      div.transition()    
+        .duration(500)    
+        .style("opacity", 0); 
     });
 }
 
@@ -45085,7 +45342,7 @@ function kahnsAlgorithm(S, refDictionary) {
         refDictionary[key] = refDictionary[key].filter(e => e != n);
       }
       if (refDictionary[key].length == 0 && !L.some(e => e == key)) {
-        S.push(key);		
+        S.push(key);    
       }
     }
   }
@@ -45186,7 +45443,7 @@ function extractAllowedRefs(element, ast, aliases, schema, level, parent, isAWit
       if (aggrColumn.type == "column_ref") {
         ast.selectedRefs.push(aggrColumn.as ? aggrColumn.as : aggrColumn.column);
       } else {
-        console.warn("Unhandled type: ", selectExpr.type, " in analyzeReferences nested in an aggr_func ", selectExpr.name);	
+        console.warn("Unhandled type: ", selectExpr.type, " in analyzeReferences nested in an aggr_func ", selectExpr.name);  
       }
     } else if (selectExpr.type == "number") {
       ast.selectedRefs.push(selectNode.as);
@@ -45300,7 +45557,7 @@ function analyzeReferences(element, ast, aliases, schema, level, parent) {
           aggrColumn.errorInfo = response;
         }
       } else {
-        console.warn("Unhandled type: ", selectExpr.type, " in the select stmt nested in an aggr_func ", selectExpr.name);	
+        console.warn("Unhandled type: ", selectExpr.type, " in the select stmt nested in an aggr_func ", selectExpr.name);  
       }
     } else {
       console.warn("Unhandled type: ", selectExpr.type, " in the select stmt.");
@@ -45423,7 +45680,7 @@ function isValid(ref, isATableRef, allowedRefs, ast, schema) {
         var header = "Ambiguous reference to column " + underline(ref.column);
         var msg = "You have more than one table with the same alias: " + underlineArr(validTables).join(', ') +
               ". Give the tables in the same scope unique aliases.";
-        return { result: false, type: "ambiguous_column_ref_same_aliases", message: msg, header: header, ref: ref, validTables: validTables };	
+        return { result: false, type: "ambiguous_column_ref_same_aliases", message: msg, header: header, ref: ref, validTables: validTables };  
       } else {
         // Found exactly one valid table for this reference, so it must be correct
         return { result: true };
@@ -45455,7 +45712,7 @@ function findReason(ref, isATableRef, allowedRefs, ast, schema) {
     var similarNames = [];
     for (var i in namesInScope) {
       var allowedRef = namesInScope[i];
-      var levensteinDistance = levenshtein(ref.table, allowedRef);	
+      var levensteinDistance = levenshtein(ref.table, allowedRef);  
       if (levensteinDistance <= similarityThreshold) {
         similarNames.push(allowedRef);
       }
@@ -45664,13 +45921,13 @@ function underlineArr(arrayOfStrings) {
 * Generates all the elements for the drawing, as well as drawing all the nodes and rectangles.
 * This fuction is called recursively to travel through the AST nested tree.
 *
-* @param element 		The visualization element to draw on.
-* @param simulation 	The simulation object that calculates the forces.
-* @param ast 			The Abstract Syntax Tree of the current query.
-* @param aliases 		An object that links table aliases to their full table name.
-* @param schema 		The database schema.
-* @param level 			The current level of recursion within the ast.
-* @returns				A set of nodes and links.
+* @param element    The visualization element to draw on.
+* @param simulation   The simulation object that calculates the forces.
+* @param ast      The Abstract Syntax Tree of the current query.
+* @param aliases    An object that links table aliases to their full table name.
+* @param schema     The database schema.
+* @param level      The current level of recursion within the ast.
+* @returns        A set of nodes and links.
 */
 function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   var nodes = [];
@@ -46058,10 +46315,10 @@ function isARefToWithClause(table) {
 /**
 * Function to recursively retrieve all links from the where part of an AST.
 *
-* @param node 		The root object of the where part of the AST.
-* @param aliases 	An object containing all aliases and full names of tables in the from clauses.
-* @param schema 	The schema of the current database.
-* @returns 			An array of link objects, each containing source, target, type and label.
+* @param node     The root object of the where part of the AST.
+* @param aliases  An object containing all aliases and full names of tables in the from clauses.
+* @param schema   The schema of the current database.
+* @returns      An array of link objects, each containing source, target, type and label.
 */
 function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent, level) {
   if (isLeaf(node.left) && isLeaf(node.right)) {
@@ -46357,48 +46614,32 @@ function levenshtein(str1, str2) {
 /**
 * A function to retrieve the table that the column belongs to if not specified in the query.
 *
-* @param column 	The string that might represent a column.
-* @param schema 	The schema of the current database.
-* @returns 			An object containing the corresponding table if it exists, else null. Also, the type, 'link' for 
-* 					an existing table, 'condition' for null.
+* @param column   The string that might represent a column.
+* @param schema   The schema of the current database.
+* @returns      An object containing the corresponding table if it exists, else null. Also, the type, 'link' for 
+*           an existing table, 'condition' for null.
 */
 function getTable(column, schema, tables=null) {
-	if (tables) {
-		for (var i=0; i<tables.length; i++) {
-			table = tables[i];
-			for (var col in schema[table]) {
-				if (schema[table][col] == column){
-					return [table, 'link'];
-				}
-			}
-		}
-		return [null, 'condition'];
-	} else {
-		for (var table in schema) {
-			for (col in schema[table]) {
-				if (schema[table][col] == column){
-					return [table, 'link'];
-				}
-			}
-		}
-		return [null, 'condition'];
-	}
-}
-
-function queryTextAdjustments(query) {
-  if (typeof query !== 'string') {
-    throw Error('Input was not a query in text form (i.e. string).');
+  if (tables) {
+    for (var i=0; i<tables.length; i++) {
+      table = tables[i];
+      for (var col in schema[table]) {
+        if (schema[table][col] == column){
+          return [table, 'link'];
+        }
+      }
+    }
+    return [null, 'condition'];
+  } else {
+    for (var table in schema) {
+      for (col in schema[table]) {
+        if (schema[table][col] == column){
+          return [table, 'link'];
+        }
+      }
+    }
+    return [null, 'condition'];
   }
-
-  var adjusted_query = query.split(';').join('');
-  adjusted_query = adjusted_query.split('\n').join(' ');
-  adjusted_query = adjusted_query.split('\r').join(' ');
-  adjusted_query = adjusted_query.split('\s+').join(' ');
-  adjusted_query = adjusted_query.split(/[\n\r]+/g).join(' ');
-
-  adjusted_query = adjusted_query.trim();
-
-  return adjusted_query;
 }
 
 
@@ -46416,37 +46657,70 @@ if (typeof define !== 'function') {
 define(function() {
   var e = {};
 
-  e.findThisLevelEnd = function(query) {
-    return findThisLevelEnd(query);
-  }
-
-  e.attemptOrderingFix = function(query) {
-    return attemptOrderingFix(query);
-  }
-
-  e.subsetQueryToLevelAtIndex = function(query, index) {
-    return subsetQueryToLevelAtIndex(query, index);
-  }
-
+  // Few smaller tests
   e.queryTextAdjustments = function(query) {
     return queryTextAdjustments(query);
   }
 
-  e.parseQuery = function(query) {
-    return parseQuery(query);
+  // Focus on testing intended behavior
+  e.allIndicesOf = function(searchString, matchString) {
+    return allIndicesOf(searchString, matchString);
   }
 
-  e.getAST_v2 = function(query, schema) {
-    setSelections({});
-    setConditions({});
-    
-    var dbSchema = schema;
+  // Test with standard query test set
+  e.findKeywordAppearances = function(query, keywordsToFind) {
+    return findKeywordAppearances(query, keywordsToFind);
+  }
 
-    var stripped_query = queryTextAdjustments(query);
+  // Test with standard query test set
+  e.onlyKeepSubqueryBrackets = function(searchString, matchString) {
+    return onlyKeepSubqueryBrackets(searchString, matchString);
+  }
 
-    var ast = parseQuery(stripped_query);
+  // Test with standard query test set
+  e.addKeywordEndings = function(keywordStatus, totalQueryLength) {
+    return addKeywordEndings(keywordStatus, totalQueryLength);
+  }
 
-    return JSON.stringify(ast);
+  // Needs be tested using findKeywordOrderAtEachLevel,
+  //   test with specific query set
+  e.buildDepthString = function(currentDepth, previousDepths) {
+    return buildDepthString(currentDepth, previousDepths);
+  }
+
+  // Test with standard query test set
+  e.findKeywordOrderAtEachLevel = function(keywordsPlusBrackets) {
+    return findKeywordOrderAtEachLevel(keywordsPlusBrackets);
+  }
+
+  // Test mainly with erroneous queries, plus a few standard ones
+  e.findKeywordIssuesPerLevel = function(keywordsPerLevel) {
+    return findKeywordIssuesPerLevel(keywordsPerLevel);
+  }
+
+  // Test mainly with erroneous queries, plus a few standard ones
+  e.onlyKeepBiggestMistakes = function(mistakeList, arrayIndex=0) {
+    return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
+  }
+
+  // Few smaller tests
+  e.retrieveKeywordIfPresent = function(keywordArray, keywordToFind) {
+    return retrieveKeywordIfPresent(keywordArray, keywordToFind);
+  }
+
+  // Test with standard query test set
+  e.forcedReordering = function(query, keywordsPerLevel) {
+    return forcedReordering(query, keywordsPerLevel);
+  }
+
+  // Test with standard query test set
+  e.attemptOrderingFix = function(query) {
+    return attemptOrderingFix(query);
+  }
+
+  // Test with standard query test set
+  e.parseQuery = function(query) {
+    return parseQuery(query);
   }
 
   return e;
