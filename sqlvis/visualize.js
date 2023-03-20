@@ -43728,7 +43728,7 @@ function allIndicesOf(searchString, matchString) {
 }
 
 
-function findKeywordAppearances(query, keywordsToFind) {
+function findKeywordAppearances(query, keywordsToFind, sortOrderOfAppearance=false) {
   // let keywordArray = [];
   // let indexArray = [];
   // Using an array for this lets us manage the ordering more easily.
@@ -43747,6 +43747,10 @@ function findKeywordAppearances(query, keywordsToFind) {
       // keywordArray.push(keyword);
       // indexArray.push(foundAtIndices);
     }
+  }
+
+  if (sortOrderOfAppearance) {
+    foundKeywords.sort((a, b) => {return a[1] - b[1]});
   }
 
   // return {foundKeywords: keywordArray, foundIndices: indexArray}
@@ -43814,13 +43818,13 @@ function addKeywordEndings(keywordStatus, totalQueryLength) {
   // To copy paste:
   // let keywordStatus = [['select',0],['from',29],['where',63],['(',78],['select',79],['groupby',109],['from',141],['having',177],[')',202],['groupby',222]]
 
-  ongoingKeywords = []
-  ongoingBrackets = []
+  let ongoingKeywords = []
+  let ongoingBrackets = []
 
   for (let keywordIndex in keywordStatus) {
     let keyword = keywordStatus[keywordIndex];
 
-    if (keywordIndex === 0) {
+    if (Number(keywordIndex) === 0) {
       // The first keyword has nothing in front of it, so needs slightly
       //   different logic because there is no ongoing keyword to work with.
       ongoingKeywords.push(keyword);
@@ -43909,7 +43913,7 @@ function addKeywordEndings(keywordStatus, totalQueryLength) {
   }
 
   let lastKeyword = ongoingKeywords.pop();
-  lastKeyword.push(totalQueryLength - 1);
+  lastKeyword.push(totalQueryLength);
 }
 
 
@@ -43935,7 +43939,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
   let depthString = buildDepthString(currentDepth, previousDepths);
 
   // Initialize for initial depth
-  returnObj[depthString] = {keyword_array: []};
+  returnObj[depthString] = {keywordArray: []};
 
   for (let i in keywordsPlusBrackets) {
     let keyword = keywordsPlusBrackets[i][0];
@@ -43944,7 +43948,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
       currentDepth += 1;
       depthString = buildDepthString(currentDepth, previousDepths);
       // Initialize object tracking for new depth.
-      returnObj[depthString] = {keyword_array: []};
+      returnObj[depthString] = {keywordArray: []};
     } else if (keyword == ')') {
       // Query depth decreases by one step. This is not a new instance
       //   of the previous depth however, so take care when rebuilding the
@@ -43953,7 +43957,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
       previousDepths.push(currentDepth);
       currentDepth -= 1;
     } else {
-      returnObj[depthString].keyword_array.push(keywordsPlusBrackets[i]);
+      returnObj[depthString].keywordArray.push(keywordsPlusBrackets[i]);
     }
   }
 
@@ -43972,7 +43976,7 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
   //   before that keyword, or if the same keyword appeared before already.
   for (let levelName in keywordsPerLevel) {
     // console.log(levelName);
-    let keywordList = keywordsPerLevel[levelName].keyword_array;
+    let keywordList = keywordsPerLevel[levelName].keywordArray;
     // seenKeywordData structure:
     // seenKeywordData.keywordsExpectedIndex = [keyword, indexInQuery]
     let seenKeywordData = {};
@@ -44418,11 +44422,17 @@ function attemptOrderingFix(query) {
   itemsToFind.push(...subqueryMarkers);
 
   let lowercaseQuery = query.toLowerCase();
-  
-  let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind);
-  keywordStatus.sort((a, b) => {return a[1] - b[1]});
+
+  let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind,
+                                             sortOrderOfAppearance=true);
   // console.log(query);
 
+  // TODO: implement things for the note below!
+  
+  // NOTE @ onlyKeepSubqueryBrackets: for "COUNT(GROUP BY ...", it is expected that improper
+  //   subqueries are already handled at this point and the GROUP BY is already attached
+  //   to the column (attachment method intentionally breaks detection for this).
+  
   onlyKeepSubqueryBrackets(keywordStatus);
   // console.log(keywordStatus);
   // So now it is of the form:
@@ -44457,16 +44467,16 @@ function attemptOrderingFix(query) {
   let keywordsPerLevel = findKeywordOrderAtEachLevel(keywordStatus);
   // console.log(keywordsPerLevel);
   // ^ function return structure: 
-  // {'level_0_0': {keyword_array: [keywords]},
-  //  'level_1_0': {keyword_array: [keywords]},
-  //  'level_1_1': {keyword_array: [keywords]}, ...}
+  // {'level_0_0': {keywordArray: [keywords]},
+  //  'level_1_0': {keywordArray: [keywords]},
+  //  'level_1_1': {keywordArray: [keywords]}, ...}
 
   // console.log(keywordsPerLevel);
   // console.log('0_0')
-  // console.log(keywordsPerLevel.level_0_0.keyword_array);
+  // console.log(keywordsPerLevel.level_0_0.keywordArray);
   // if (typeof keywordsPerLevel.level_1_0 !== 'undefined') {
   //   console.log('1_0')
-  //   console.log(keywordsPerLevel.level_1_0.keyword_array);
+  //   console.log(keywordsPerLevel.level_1_0.keywordArray);
   // }
   // throw Error('nee.');
   
@@ -46668,8 +46678,8 @@ define(function() {
   }
 
   // Test with standard query test set
-  e.findKeywordAppearances = function(query, keywordsToFind) {
-    return findKeywordAppearances(query, keywordsToFind);
+  e.findKeywordAppearances = function(query, keywordsToFind, sortOrderOfAppearance=false) {
+    return findKeywordAppearances(query, keywordsToFind, sortOrderOfAppearance);
   }
 
   // Test with standard query test set

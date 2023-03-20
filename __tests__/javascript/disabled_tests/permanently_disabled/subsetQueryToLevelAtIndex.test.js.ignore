@@ -1,3 +1,5 @@
+/* FUNCTION NO LONGER EXISTS */
+
 const visCode = require('../../../sqlvis/visualize');
 
 test('Subset of top level, no subquery', () => {
