@@ -43793,6 +43793,14 @@ function onlyKeepSubqueryBrackets(keywordStatus) {
 }
 
 
+function handleImproperGroupByPlacement(query, keywordStatus) {
+  // Handle:
+  // - COUNT(GROUP BY x) like things
+  // - SELECT GROUP BY like things
+  throw Error('Not implemented yet. Also, how?');
+}
+
+
 function addKeywordEndings(keywordStatus, totalQueryLength) {
   /*
   =====================================
@@ -43969,7 +43977,7 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
   const expectedOrder = ['with', 'select', 'from', 'join', 'on',
                          'where', 'group by', 'having', 'order by'];
   let foundIssues = {};
-  console.log(keywordsPerLevel);
+  // console.log(keywordsPerLevel);
 
   // For every level, check all keywords that appear. For every keyword,
   //   check if any of the keywords before it either incorrectly appeared
@@ -44000,7 +44008,9 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
       // Check if any of the previously seen keywords are supposed to come
       //   later than this one. If so, something is out of order.
       for (let seenKeywordIndex in seenKeywordData) {
-        if (keywordIndex < seenKeywordIndex) {
+        // The index is yielded as a number in string form. Make it a number.
+        let seenKeywordIndexInt = Number(seenKeywordIndex);
+        if (keywordIndex < seenKeywordIndexInt) {
           // A keyword was seen before that is supposed to come after
           //   the keyword we are looking at now. Create new error tracker
           //   if not already present, and log this occurrence. For now,
@@ -44009,10 +44019,10 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
             foundIssues[levelName] = [];
           }
 
-          let issue = {mistakeWord: [seenKeywordIndex, seenKeywordData[seenKeywordIndex]],
+          let issue = {mistakeWord: [seenKeywordIndexInt, seenKeywordData[seenKeywordIndexInt]],
                        detectedAtKeyword: [keywordIndex, keywordList[i]]};
           foundIssues[levelName].push(issue);
-        } else if (keywordIndex === seenKeywordIndex) {
+        } else if (keywordIndex === seenKeywordIndexInt) {
           // Another copy of keyword found.
           // NOTE: If there are more than two copies of the same keyword are
           //   seen, this only tracks the first seen copy. If something appears
@@ -44022,7 +44032,7 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
             foundIssues[levelName] = [];
           }
 
-          let issue = {mistakeWord: [seenKeywordIndex, seenKeywordData[seenKeywordIndex]],
+          let issue = {mistakeWord: [seenKeywordIndexInt, seenKeywordData[seenKeywordIndexInt]],
                        detectedAtKeyword: [keywordIndex, keywordList[i]]};
           foundIssues[levelName].push(issue);
         }
@@ -44100,17 +44110,9 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
 
 
 function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
-  /*
-    ====================================================================
-    VERY VERY BIG TODO: THIS ENTIRE FUNCTION IS COMPLETELY UNTESTED!!
-    I DO NOT KNOW IF THIS WORKS AS INTENDED, AND IT LIKELY DOESN'T EVEN
-    RUN IF YOU TRY RIGHT NOW. WORK IN PROGRESS!
-    ====================================================================
-  */
-
   // Track using a copy, so that mistakeList[arrayIndex] itself
   //   can safely be modified or even deleted.
-  const currentMainMistake = [...mistakeList[arrayIndex]];
+  const currentMainMistake = [...mistakeList][arrayIndex];
   const mainMistakeWordIndex = currentMainMistake.mistakeWord[0];
   const mainDetectedAtIndex = currentMainMistake.detectedAtKeyword[0];
   // The locations uniquely identify a keyword in a query.
@@ -44133,7 +44135,7 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   let sameDetectedAtWord = [{'mistakeWord_index': mainMistakeWordIndex,
                              'mistakeIndex': arrayIndex}];
   
-  for (let mistakeIndex = arrayIndex+1; i < mistakeList.length; i++) {
+  for (let mistakeIndex = arrayIndex+1; mistakeIndex < mistakeList.length; mistakeIndex++) {
     // Only look forward, since everything before this is guaranteed to be
     //   unrelated (if it was, this mistake would have been removed already).
 
@@ -44192,11 +44194,17 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     //   front, to not affect the indices to remove.
     // TODO: or keep the one with the last location? I'm not sure.
     mistakeIndicesToDrop.sort((a,b) => b - a);
-    mistakeList[arrayIndex] = [...biggestMistakeWord.mistakeIndex];
+    
+    // Make a copy of the item to ensure safety.
+    mistakeList[arrayIndex] = {'detectedAtKeyword_index':
+                                  biggestMistakeWord.detectedAtKeyword_index,
+                              'mistakeIndex':
+                                  biggestMistakeWord.mistakeIndex};
+
     for (let indexInDropList in mistakeIndicesToDrop) {
       // This removes the item from the list in place, modifying mistakeList.
       // TODO/NOTE: see TODO below, it would have an effect here (if statement)
-      indexToDrop = mistakeIndicesToDrop[indexInDropList];
+      let indexToDrop = mistakeIndicesToDrop[indexInDropList];
       mistakeList.splice(indexToDrop, 1);
     }
 
@@ -44282,6 +44290,12 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   if (arrayIndex + 1 < mistakeList.length) {
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
   }
+}
+
+
+function doubleWhereDetection(mistakeList, arrayIndex=0) {
+  // Also look at the findKeywordIssues tests for more comments on this.
+  throw Error('Not yet implemented. Also idk if arrayIndex will be needed.');
 }
 
 
@@ -44421,10 +44435,9 @@ function attemptOrderingFix(query) {
   let itemsToFind = Array.from(keywordsToFind);
   itemsToFind.push(...subqueryMarkers);
 
-  let lowercaseQuery = query.toLowerCase();
+  const lowercaseQuery = query.toLowerCase();
 
-  let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind,
-                                             sortOrderOfAppearance=true);
+  let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind, true);
   // console.log(query);
 
   // TODO: implement things for the note below!
@@ -44432,6 +44445,11 @@ function attemptOrderingFix(query) {
   // NOTE @ onlyKeepSubqueryBrackets: for "COUNT(GROUP BY ...", it is expected that improper
   //   subqueries are already handled at this point and the GROUP BY is already attached
   //   to the column (attachment method intentionally breaks detection for this).
+
+  let returnObject = handleImproperGroupByPlacement(query, keywordStatus);
+  // TODO: also make use of and return improperGroupByData!
+  query = returnObject.query;
+  let improperGroupByData = returnObject.improperGroupByData;
   
   onlyKeepSubqueryBrackets(keywordStatus);
   // console.log(keywordStatus);
@@ -44480,7 +44498,7 @@ function attemptOrderingFix(query) {
   // }
   // throw Error('nee.');
   
-  foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
+  let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // NOTE: duplicate keywords are detected as issues here, and should
   //   only be corrected (if possible) after this point.
 
@@ -44494,19 +44512,23 @@ function attemptOrderingFix(query) {
   //       ...
   //   ]
 
-  // Either here or after onlyKeepBiggestMistakes, repeated keywords
-  //   must be handled. Cannot handle that in forcedReordering.
-
   // All levels mentioned in foundIssues have issues, levels not mentioned
   //   are okay as is. Clean up the collection so that it only contains
   //   the real mistakes, and not also every smaller version of them.
   for (levelName in foundIssues) {
     let mistakes = foundIssues[levelName];
     onlyKeepBiggestMistakes(mistakes);
+
+    // TODO: implement something to do double WHERE detection. Focus only
+    //   on WHERE as only that is related to the grouping/agg scope for me.
+    doubleWhereDetection(mistakes);
   }
+
 
   // Attempt to actually repair the query.
   reorganizedQuery = forcedReordering(query, keywordsPerLevel);
+
+  // TODO: Reminder to include improperGroupByData in the issues!
 
   return {'reorganizedQuery': reorganizedQuery,
           'foundIssues': foundIssues};
@@ -44586,7 +44608,6 @@ function attemptOrderingFix(query) {
   // TODO: keep & return changelog of adjustments
 
   // TODO: GROUP BY -> WHERE with agg = where should be having
-  // TODO: 
 
   return rebuiltQuery;
 }
@@ -44598,20 +44619,23 @@ function parseQuery(query) {
     throw Error('Input was not a query in text form (i.e. string).');
   }
 
+  let returnValues = {};
+
   try{
-    var ast = parse_sql(query);
+    returnValues.ast = parse_sql(query);
   } catch (e) {
     console.log('Query contained errors that make it unparseable. Attempting repairs.');
     var orderingFixResults = attemptOrderingFix(query);
     
-    // TODO: foundIssues is currently not actually used.
-    var fixed_query = orderingFixResults.reorganizedQuery;
+    var fixedQuery = orderingFixResults.reorganizedQuery;
     var foundIssues = orderingFixResults.foundIssues;
     
-    var ast = parse_sql(fixed_query);
+    returnValues.ast = parse_sql(fixedQuery);
+    returnValues.fixedQuery = fixedQuery;
+    returnValues.foundIssues = foundIssues;
   }
 
-  return ast;
+  return returnValues;
 }
 
 
@@ -44624,7 +44648,9 @@ function visualize(query, schema, container, d3) {
   var stripped_query = query.replace(/;/, '');
 
   try {
-    var ast = parseQuery(stripped_query);
+    let parseResults = parseQuery(stripped_query);
+    var ast = parseResults.ast;
+    // TODO: reminder that foundIssues and fixedQuery exist
   }
   catch (e) {
     container.text(e);
