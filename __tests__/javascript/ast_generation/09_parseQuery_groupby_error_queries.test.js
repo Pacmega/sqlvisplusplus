@@ -18,8 +18,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -64,8 +65,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -110,8 +112,9 @@ GROUP BY c.cName
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -155,8 +158,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -199,8 +203,9 @@ GROUP BY c.cName
 WHERE c.cName LIKE '%a%';
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -251,8 +256,9 @@ WHERE c.cID IN (GROUP BY p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -323,8 +329,9 @@ WHERE c.cID IN (SELECT p2.cID
 AND c.cID = p.cID
 GROUP BY c.cName;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -392,8 +399,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -432,8 +440,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = SUM(p.cID)
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -473,8 +482,9 @@ SELECT GROUP BY cName, SUM(purchase.price)
 FROM customer, purchase
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -487,11 +497,12 @@ FROM customer, purchase
   // Then check contents.
   // Notice the recognition as a function, not as an aggr_func.
   // This will be relevant later, in analysis.
-  expect(ast.columns[0].expr.name).toBe('GROUPBY');
-  expect(ast.columns[0].expr.type).toBe('function');
-  expect(ast.columns[0].expr.args.type).toBe('expr_list');
-  expect(ast.columns[0].expr.args.value[0].table).toBeNull();
-  expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
+  expect(ast.columns[0].expr.column).toBe('GROUP_BY_cName');
+  // expect(ast.columns[0].expr.name).toBe('GROUPBY');
+  // expect(ast.columns[0].expr.type).toBe('function');
+  // expect(ast.columns[0].expr.args.type).toBe('expr_list');
+  // expect(ast.columns[0].expr.args.value[0].table).toBeNull();
+  // expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
   expect(ast.columns[1].expr.type).toBe('aggr_func');
   expect(ast.columns[1].expr.name).toBe('SUM');
   expect(ast.columns[1].expr.args.expr.column).toBe('price');
@@ -511,8 +522,9 @@ SELECT GROUP BY customer.cName, SUM(purchase.price)
 FROM customer, purchase
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -525,11 +537,14 @@ FROM customer, purchase
   // Then check contents.
   // Notice the recognition as a function, not as an aggr_func.
   // This will be relevant later, in analysis.
-  expect(ast.columns[0].expr.name).toBe('GROUPBY');
-  expect(ast.columns[0].expr.type).toBe('function');
-  expect(ast.columns[0].expr.args.type).toBe('expr_list');
-  expect(ast.columns[0].expr.args.value[0].table).toBe('customer');
-  expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
+  // expect(ast.columns[0].expr.name).toBe('GROUPBY');
+  // expect(ast.columns[0].expr.type).toBe('function');
+  // expect(ast.columns[0].expr.args.type).toBe('expr_list');
+  // expect(ast.columns[0].expr.args.value[0].table).toBe('customer');
+  // expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('GROUP_BY_customer');
+
   expect(ast.columns[1].expr.type).toBe('aggr_func');
   expect(ast.columns[1].expr.name).toBe('SUM');
   expect(ast.columns[1].expr.args.expr.column).toBe('price');
@@ -549,8 +564,9 @@ SELECT GROUP BY SUM(price)
 FROM purchase
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -561,7 +577,7 @@ FROM purchase
   expect(ast.having).toBeNull();
 
   // Then check contents.
-  expect(ast.columns[0].expr.name).toBe('GROUPBY_SUM');
+  expect(ast.columns[0].expr.name).toBe('GROUP_BY_SUM');
   expect(ast.columns[0].expr.type).toBe('function');
   expect(ast.columns[0].expr.args.value[0].column).toBe('price');
   expect(ast.columns[0].expr.args.value[0].table).toBeNull();
@@ -580,8 +596,9 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND COUNT(GROUP BY p.pID) < 5;`
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -608,10 +625,10 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(ast.where.left.right.column).toBe('cID');
   expect(ast.where.left.right.table).toBe('p');
   expect(ast.where.operator).toBe('AND');
-  expect(ast.where.right.left.name).toBe('COUNT_GROUPBY');
-  expect(ast.where.right.left.type).toBe('function');
-  expect(ast.where.right.left.args.value[0].column).toBe('pID');
-  expect(ast.where.right.left.args.value[0].table).toBe('p');
+  expect(ast.where.right.left.name).toBe('COUNT');
+  expect(ast.where.right.left.type).toBe('aggr_func');
+  expect(ast.where.right.left.args.expr.column).toBe('pID');
+  expect(ast.where.right.left.args.expr.table).toBe('GROUP_BY_p');
   expect(ast.where.right.operator).toBe('<');
   expect(ast.where.right.right.value).toBe(5);
 });
@@ -625,8 +642,9 @@ FROM customer, purchase
 GROUP BY purchase.price;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -663,8 +681,9 @@ WHERE customer.cID = purchase.cID
 GROUP BY purchase.price;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -703,8 +722,9 @@ FROM customer, purchase
 GROUP BY purchase.price;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // First check if everything exists as expected.
   expect(ast.type).toBe('select');
@@ -725,4 +745,19 @@ GROUP BY purchase.price;
 
   expect(ast.groupby[0].column).toBe('price');
   expect(ast.groupby[0].table).toBe('purchase');
+});
+
+test('At least one unclear bug in finding biggest mistakes', () => {
+  query = `
+SELECT MAX(p.price) as highest_purchase, MIN(p.price)
+GROUP BY c.cID
+WHERE c.cID = p.cID
+FROM customer AS c, purchase AS p
+`
+
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  expect(ast).toBe('ast');
 });

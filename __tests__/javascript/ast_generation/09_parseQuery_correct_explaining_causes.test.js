@@ -25,8 +25,9 @@ FROM customer c, ordered o
 WHERE c.customerid = o.customerid;
 `;
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // Check different expected AST attributes
   expect(ast.type).toBe('select');
@@ -54,8 +55,9 @@ JOIN ordered o
 ON (c.customerid = o.customerid);
 `;
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // Check different expected AST attributes
   expect(ast.type).toBe('select');
@@ -92,8 +94,9 @@ AND EXISTS
     WHERE p.productid = s.productid);
 `;
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   // Check different expected AST attributes
   expect(ast.type).toBe('select');
@@ -151,8 +154,9 @@ WHERE NOT EXISTS
     );
 `;
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
   expect(ast.columns[0].expr.column).toBe('productid');
@@ -204,8 +208,9 @@ WHERE c1.customerid <> 47
 AND c2.customerid = 47;
 `;
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
   expect(ast.columns[0].expr.column).toBe('name');
@@ -248,8 +253,9 @@ AND onhand =
     WHERE description = 'used');
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
   expect(ast.columns[0].expr.column).toBe('productid');
@@ -290,8 +296,9 @@ JOIN customer c
 ON (o.customerid = c.customerid);
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
 
@@ -322,8 +329,9 @@ FROM ordered
 GROUP BY productid;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
 
@@ -350,8 +358,9 @@ WHERE p.productid = o.productid
 GROUP BY p.productid;
 `
 
-  var clean_query = visCode.queryTextAdjustments(query);
-  var ast = visCode.parseQuery(clean_query);
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
 
   expect(ast.type).toBe('select');
 

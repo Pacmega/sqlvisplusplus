@@ -34,6 +34,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -75,6 +77,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -116,6 +120,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -156,6 +162,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -185,6 +193,8 @@ WHERE c.cName LIKE '%a%';
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -236,6 +246,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -281,6 +293,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -322,6 +336,8 @@ WHERE c.cID = p.cID;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -344,6 +360,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -365,31 +383,20 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
-  // TODO: SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?
-  console.log('SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?\n'
-              + 'Considering COUNT(GROUP BY) is handled before this point, perhaps.');
-  expect(true).toBe(false);
-
-  // Step 1: check if the biggest error(s) was (were) found correctly.
-  expect(foundIssues.level_0_0).toBeDefined();
+  console.log('NOTE @ findKeywordIssues: SELECT GROUP BY - As GROUP BY should not appear as a '
+              + 'keyword anymore at this point, there should be no issues regarding it.');
+  
+  // As this query does not contain errors in the keywords that should be
+  //   detected at this location, confirm that none of the levels appear.
+  expect(foundIssues.level_0_0).toBeUndefined();
   let levelZeroKeywords = keywordsPerLevel.level_0_0.keywordArray;
-
-  // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
-  //   biggest mistakes are kept. This step is why it is currently
-  //   unnecessary to check for every detected item in the previous step.
-  for (levelName in foundIssues) {
-    let mistakes = foundIssues[levelName];
-    visCode.onlyKeepBiggestMistakes(mistakes);
-  };
-
-
-
-
 });
 
 
@@ -403,30 +410,17 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
-  // TODO: SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?
-  console.log('SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?\n'
-              + 'Considering COUNT(GROUP BY) is handled before this point, perhaps.');
-  expect(true).toBe(false);
-
-  // Step 1: check if the biggest error(s) was (were) found correctly.
-  expect(foundIssues.level_0_0).toBeDefined();
+  // As this query does not contain errors in the keywords that should be
+  //   detected at this location, confirm that none of the levels appear.
+  expect(foundIssues.level_0_0).toBeUndefined();
   let levelZeroKeywords = keywordsPerLevel.level_0_0.keywordArray;
-
-  // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
-  //   biggest mistakes are kept. This step is why it is currently
-  //   unnecessary to check for every detected item in the previous step.
-  for (levelName in foundIssues) {
-    let mistakes = foundIssues[levelName];
-    visCode.onlyKeepBiggestMistakes(mistakes);
-  };
-  expect(true).toBe(false);
-
-
 });
 
 
@@ -440,30 +434,17 @@ FROM purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
-  // TODO: SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?
-  console.log('SELECT GROUP BY - How to handle? Should this kinda thing be caught before here?\n'
-              + 'Considering COUNT(GROUP BY) is handled before this point, perhaps.');
-  expect(true).toBe(false);
-
-  // Step 1: check if the biggest error(s) was (were) found correctly.
-  expect(foundIssues.level_0_0).toBeDefined();
+  // As this query does not contain errors in the keywords that should be
+  //   detected at this location, confirm that none of the levels appear.
+  expect(foundIssues.level_0_0).toBeUndefined();
   let levelZeroKeywords = keywordsPerLevel.level_0_0.keywordArray;
-
-  // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
-  //   biggest mistakes are kept. This step is why it is currently
-  //   unnecessary to check for every detected item in the previous step.
-  for (levelName in foundIssues) {
-    let mistakes = foundIssues[levelName];
-    visCode.onlyKeepBiggestMistakes(mistakes);
-  };
-  expect(true).toBe(false);
-
-
 });
 
 
@@ -478,6 +459,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -501,6 +484,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -524,6 +509,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -546,6 +533,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -577,6 +566,8 @@ GROUP BY that;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -607,6 +598,8 @@ WHERE a.that in (SELECT alsothat
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
@@ -645,6 +638,8 @@ WHERE b.alsothat in (SELECT alsothat
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
   let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);

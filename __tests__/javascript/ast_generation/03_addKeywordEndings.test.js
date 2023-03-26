@@ -33,6 +33,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -62,6 +64,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -91,6 +95,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -119,6 +125,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -147,6 +155,8 @@ WHERE c.cName LIKE '%a%';
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -181,6 +191,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -225,6 +237,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -266,6 +280,8 @@ WHERE c.cID = p.cID;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -292,6 +308,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -317,18 +335,20 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
-  expect(keywordArray[0][2]).toBe(7);
-  expect(keywordArray[1][2]).toBe(43);
-  expect(keywordArray[2][2]).toBe(66);
+  expect(keywordArray[0][2]).toBe(43);
+  expect(keywordArray[2]).toBeUndefined; // 66, if GROUP BY not removed
+  expect(keywordArray[1][2]).toBe(66);
 });
 
 
@@ -342,18 +362,20 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
-  expect(keywordArray[0][2]).toBe(7);
-  expect(keywordArray[1][2]).toBe(52);
-  expect(keywordArray[2][2]).toBe(75);
+  expect(keywordArray[0][2]).toBe(52);
+  expect(keywordArray[2]).toBeUndefined; // 75, if GROUP BY not removed
+  expect(keywordArray[1][2]).toBe(75);
 });
 
 
@@ -367,18 +389,20 @@ FROM purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
-  expect(keywordArray[0][2]).toBe(7);
-  expect(keywordArray[1][2]).toBe(27);
-  expect(keywordArray[2][2]).toBe(40);
+  expect(keywordArray[0][2]).toBe(27);
+  expect(keywordArray[2]).toBeUndefined; // 40, if GROUP BY not removed
+  expect(keywordArray[1][2]).toBe(40);
 });
 
 
@@ -396,6 +420,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -403,6 +429,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(keywordArray[0][0]).toBe('select');
   expect(keywordArray[1][0]).toBe('from');
   expect(keywordArray[2][0]).toBe('where');
+  // Expect there to be no third item at all, no bracket nor group by.
+  expect(keywordArray[3]).toBeUndefined();
 
   // Then check all their locations
   expect(keywordArray[0][2]).toBe(24);
@@ -422,6 +450,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -450,6 +480,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 
@@ -478,6 +510,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                     sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
 

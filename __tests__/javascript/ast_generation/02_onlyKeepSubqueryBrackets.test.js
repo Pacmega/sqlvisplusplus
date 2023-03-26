@@ -30,6 +30,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there.
@@ -58,6 +60,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -86,6 +90,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -113,6 +119,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -140,6 +148,8 @@ WHERE c.cName LIKE '%a%';
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -173,6 +183,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -216,6 +228,8 @@ GROUP BY c.cName;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -256,6 +270,8 @@ WHERE c.cID = p.cID;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -281,6 +297,8 @@ WHERE c.cID = SUM(p.cID)
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -305,17 +323,19 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
   expect(keywordArray[0][1]).toBe(1);
-  expect(keywordArray[1][1]).toBe(8);
-  expect(keywordArray[2][1]).toBe(44);
+  expect(keywordArray[2]).toBeUndefined; // 44, if GROUP BY not removed
+  expect(keywordArray[1][1]).toBe(44);
 });
 
 
@@ -329,17 +349,19 @@ FROM customer, purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
   expect(keywordArray[0][1]).toBe(1);
-  expect(keywordArray[1][1]).toBe(8);
-  expect(keywordArray[2][1]).toBe(53);
+  expect(keywordArray[2]).toBeUndefined; // 53, if GROUP BY not removed
+  expect(keywordArray[1][1]).toBe(53);
 });
 
 
@@ -353,17 +375,19 @@ FROM purchase
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
   expect(keywordArray[0][0]).toBe('select');
-  expect(keywordArray[1][0]).toBe('group by');
-  expect(keywordArray[2][0]).toBe('from');
+  expect(keywordArray[2]).toBeUndefined(); // FROM, if GROUP BY not removed
+  expect(keywordArray[1][0]).toBe('from');
 
   // Then check all their locations
   expect(keywordArray[0][1]).toBe(1);
-  expect(keywordArray[1][1]).toBe(8);
-  expect(keywordArray[2][1]).toBe(28);
+  expect(keywordArray[2]).toBeUndefined; // 28, if GROUP BY not removed
+  expect(keywordArray[1][1]).toBe(28);
 });
 
 
@@ -383,6 +407,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -390,14 +416,12 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(keywordArray[1][0]).toBe('from');
   expect(keywordArray[2][0]).toBe('where');
   // Expect there to be no third item at all, no bracket nor group by.
-  expect(keywordArray[3][0]).toBeUndefined();
+  expect(keywordArray[3]).toBeUndefined();
 
   // Then check all their locations
   expect(keywordArray[0][1]).toBe(1);
   expect(keywordArray[1][1]).toBe(25);
   expect(keywordArray[2][1]).toBe(59);
-  // Expect there to be no third item at all, no bracket nor group by.
-  expect(keywordArray[3][1]).toBeUndefined();
 });
 
 
@@ -412,6 +436,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -439,6 +465,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
@@ -466,6 +494,8 @@ GROUP BY purchase.price;
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
                                                       sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
 
   // First check that all expected keywords are indeed there
