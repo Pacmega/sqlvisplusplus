@@ -44462,85 +44462,69 @@ function forcedReordering(query, keywordsPerLevel) {
   let levelsReverseOrdered = Object.keys(keywordsPerLevel);
   levelsReverseOrdered.sort().reverse();
 
-  // begin & end of each keyword known
-  // Starting from deepest & last subquery, forced reordering:
-  // grab every keyword's pieces, and force them into the right
-  // locations. Plan:
+  let reorganizedQuery = query;
 
-  let reorganizedQuery = [];
   for (let levelIndex in levelsReverseOrdered) {
     let levelName = levelsReverseOrdered[levelIndex];
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
     let reorganizedQueryLevel = [];
 
-    // {'level_0_0': {keywordArray: [keywords]},
-    //  'level_1_0': {keywordArray: [keywords]},
-    //  'level_1_1': {keywordArray: [keywords]}, ...}
-
-    // ===== Safeguarding components =====
-    // I can remove the things between these == once everything works
-    // TODO: remove safeguards
-    // endLocation = index of last char, should do +1 for slicing
-    let startLocation = levelKeywords[0][1];
-    let endLocation = levelKeywords[levelKeywords.length-1][2];
+    let startLocations = levelKeywords.map(x => x[1]);
+    let startLocation = Math.min(...startLocations);
+    let endLocations = levelKeywords.map(x => x[2]);
+    let endLocation = Math.max(...endLocations);
     let levelLength = endLocation - startLocation;
-    // ===================================
 
     for (let keywordIndex in keywordsOrderPerLevel) {
       let expectedKeyword = keywordsOrderPerLevel[keywordIndex];
       let keywordInfo = retrieveKeywordIfPresent(levelKeywords, expectedKeyword);
       if (keywordInfo !== -1) {
-        // Grab the corresponding component for this (sub-) query
-        //   from the original query, to put in the right place.
-        let queryComponent = query.slice(keywordInfo[1], keywordInfo[2] + 1);
+        // Grab the corresponding component for this (sub-) query from the
+        //   original query, to put in the right place. If the slice does not
+        //   end with a space, add one. Only the last piece of a (sub-)query
+        //   can lack a space, and we must add it to avoid connecting parts.
+        let queryComponent = reorganizedQuery.slice(keywordInfo[1], keywordInfo[2] + 1);
+        if (queryComponent.slice(-1) !== ' ') {
+          queryComponent += ' ';
+        }
+
         reorganizedQueryLevel.push(queryComponent);
       }
     }
 
     reorganizedQueryLevel = reorganizedQueryLevel.join('');
 
+    // Replace original subquery by the reconstructed one. The space after
+    //   a keyword might have been moved to the end of the subquery, so
+    //   trim the query level before splicing it in.
+    reorganizedQueryLevel = reorganizedQueryLevel.trim();
+
     // ===== Safeguarding components =====
     // TODO: remove safeguards
-    if (levelLength !== reorganizedQueryLevel.length) {
-      throw Error('reorganizedQueryLevel length does not match the original level! '
-                  + 'Original should have length ' + levelLength + ', but '
-                  + 'reorganization has length ' + reorganizedQueryLevel.length
-                  + '.\n\n Query in question: ' + query
-                  + '\nIntended level slice: ' + query.slice(startLocation, endLocation+1)
-                  + '\nCreated reorganization: ' + reorganizedQueryLevel);
-    }
+    // if (levelLength !== reorganizedQueryLevel.length + 1) {
+    //   throw Error('reorganizedQueryLevel length does not match the original level! '
+    //               + 'Original should have length ' + levelLength + ', but '
+    //               + 'reorganization has length ' + reorganizedQueryLevel.length
+    //               + '.\n\nQuery in question: ' + query
+    //               + '\nIntended level slice: ' + query.slice(startLocation, endLocation+1)
+    //               + '\nReorganization made : ' + reorganizedQueryLevel);
+    // }
     // ===================================
-
-    reorganizedQuery.push(reorganizedQueryLevel);
-  }
-
-  reorganizedQuery = reorganizedQuery.join('');
+    reorganizedQuery = stringSplice(reorganizedQuery, startLocation,
+                                    levelLength + 1, reorganizedQueryLevel);
+    
+    }
 
   // ===== Safeguarding components =====
   // TODO: remove safeguards
-  if (query.length !== reorganizedQuery.length) {
-    throw Error('reorganizedQuery length does not match the original! '
-                + 'Original should have length ' + levelLength + ', but '
-                + 'reorganization has length ' + reorganizedQuery.length
-                + '.\n\n Original query in question: ' + query
-                + '\nCreated reorganization: ' + reorganizedQuery);
-  }
+  // if (query.length !== reorganizedQuery.length) {
+  //   throw Error('reorganizedQuery length does not match the original! '
+  //               + 'Original should have length ' + query.length + ', but '
+  //               + 'reorganization has length ' + reorganizedQuery.length
+  //               + '.\n\nThe original query was: ' + query
+  //               + '\nCreated reorganization: ' + reorganizedQuery);
+  // }
   // ===================================
-
-  // for query level:
-    // store start & end char indices of level
-    // let reorganizedQueryLevel = []
-    // for keyword in expectedOrderArray:
-      // if keyword is in query level:
-        // grab query slice for that whole keyword
-        // reorganizedQueryLevel.push(query slice)
-    // use reorganizedQueryLevel to build new subquery level string
-    // if length not same at original end-start, throw error because I fucked up
-    // query[levelStart:levelEnd] = reorganizedQueryLevel.join('')
-
-  // Now reorganization should be done, I think
-  
-  // TODO: though I do wonder... what happened to repeated keywords again?
 
   return reorganizedQuery;
 }
@@ -44571,12 +44555,6 @@ function attemptOrderingFix(query) {
 
   let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind, true);
   // console.log(query);
-
-  // TODO: implement things for the note below!
-  
-  // NOTE @ onlyKeepSubqueryBrackets: for "COUNT(GROUP BY ...", it is expected that improper
-  //   subqueries are already handled at this point and the GROUP BY is already attached
-  //   to the column (attachment method intentionally breaks detection for this).
 
   let returnObject = handleImproperGroupByPlacement(query, keywordStatus);
   // TODO: also make use of improperGroupByData!
