@@ -44387,6 +44387,14 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
 }
 
 
+function fixSingleWhereWithAgg(levelMistakes, levelKeywords, query) {
+  /* This function handles:
+     - Single WHERE with aggregation
+  */ 
+  throw Error('TODO: implement this.');
+}
+
+
 function doubleWhereDetection(levelMistakes, levelKeywords, query) {
   const aggregateFuncs = ['avg', 'count', 'group_concat', 'max',
                           'min', 'sum', 'total'];
@@ -44410,7 +44418,8 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
     if (mistake.mistakeWord[0] === mistake.detectedAtKeyword[0]
         && mistake.mistakeWord[1][0] === 'where') {
       // This detected error was a double WHERE. If the second WHERE contains
-      //   aggregation, it should have been having instead.
+      //   aggregation and/or appears behind a GROUP BY, it likely should have
+      //   been having instead.
       let secondWhereStart = mistake.detectedAtKeyword[1][1];
       let secondWhereEnd = mistake.detectedAtKeyword[1][2];
       let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd);
@@ -44427,24 +44436,26 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
         }
       }
 
+      // Check if a GROUP BY appears before the second WHERE. If so, it will
+      //   be turned into a HAVING statement instead.
+      let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
+      let groupByIndex = keywordsInLevel.indexOf('group by');
+      let groupByBefore2ndWhere =  groupByIndex < secondWhereIndex ? true : false;
+
       // Check if the second detected WHERE comes right after the first one
       //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
       //   turned into an AND statement instead.
-      let directlySubsequentWhere = false;
-      if (mistake.mistakeWord[1][2] + 1 === secondWhereStart) {
-        directlySubsequentWhere = true;
-      }
+      let directlySubsequentWhere = 
+        mistake.mistakeWord[1][2] + 1 === secondWhereStart ? true : false;
 
-      let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
-
-      if (aggrFuncFound) {
+      if (aggrFuncFound || groupByBefore2ndWhere) {
         if (keywordsInLevel.includes('having')) {
           // The second WHERE should be a HAVING, but there already is one so
           //   we cannot just change the word WHERE. Move this second WHERE to
           //   appear after the HAVING as an AND, and adjust accordingly.
           let havingKeywordIndex = keywordsInLevel.indexOf('having');
           let havingEndLocation = returnObject.levelKeywords[havingKeywordIndex][2];
-          let secondWhereLength = secondWhereSlice.length
+          let secondWhereLength = secondWhereSlice.length;
 
           // Different behavior based on whether second WHERE or HAVING appears
           //   first, as first changing the later-appearing one makes things
@@ -44452,7 +44463,7 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
           if (secondWhereIndex < havingKeywordIndex) {
             // The second WHERE happened before the HAVING statement.
             // First, add the second WHERE to its new location and make it AND.
-            let replacementString = ' AND '
+            let replacementString = ' AND ';
             returnObject.changedQuery = stringSplice(returnObject.changedQuery,
                                                      havingEndLocation,
                                                      0,
@@ -44471,8 +44482,8 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
             /*
             This change affects the start and end indices of every item that
             was in between the WHERE and the HAVING, and also the WHERE and
-            HAVING themselves (the HAVING gets longer, the WHERE is lost). All
-            keywords after the WHERE but before the HAVING occur sooner, but
+            HAVING themselves (HAVING start moves forward, the WHERE is lost).
+            All keywords after the WHERE but before the HAVING occur sooner, but
             those after the HAVING (and moved WHERE) are still on the same indices.
             */
             for (let i = secondWhereIndex; i < havingKeywordIndex; i++) {
@@ -44489,7 +44500,7 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
                                                      secondWhereLength);
 
             // Second, re-add the second WHERE and make it AND.
-            let replacementString = ' AND '
+            let replacementString = ' AND ';
             returnObject.changedQuery = stringSplice(returnObject.changedQuery,
                                                      havingEndLocation,
                                                      0,
@@ -44519,15 +44530,16 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
         else {
           // The second WHERE should be a HAVING, and there does not exist one
           //   already. Change the keyword itself, no need to move anything.
-          let replacementString = 'HAVING'
+          let replacementString = 'HAVING';
           returnObject.changedQuery = stringSplice(returnObject.changedQuery,
                                                    secondWhereStart, whereLength,
                                                    replacementString);
 
           // As HAVING has one character more than WHERE, every start & end
           //   index after the start of this now-HAVING must be offset by 1.
+          returnObject.levelKeywords[secondWhereIndex][0] = 'having';
           returnObject.levelKeywords[secondWhereIndex][2] = 
-            returnObject.levelKeywords[secondWhereIndex][2] + 1;
+              returnObject.levelKeywords[secondWhereIndex][2] + 1;
 
           for (let i = secondWhereIndex + 1; i < returnObject.levelKeywords.length; i++) {
             returnObject.levelKeywords[i][1] = returnObject.levelKeywords[i][1] + 1;
@@ -44540,7 +44552,7 @@ function doubleWhereDetection(levelMistakes, levelKeywords, query) {
       } else if (directlySubsequentWhere) {
         // Make the second where an AND of the first WHERE instead, and fill
         //   the extra space with spaces so all indices after this remain fine.
-        let replacementString = 'AND  '
+        let replacementString = 'AND  ';
         returnObject.changedQuery = stringSplice(returnObject.changedQuery,
                                                  secondWhereStart, whereLength,
                                                  replacementString);
