@@ -43875,7 +43875,7 @@ function handleImproperGroupByPlacement(query, keywordStatus) {
   indicesToDrop.sort().reverse();
 
   for (let indexInDropList in indicesToDrop) {
-    // As the keyword was modified, it should no longer`be taken as a keyword.
+    // As the keyword was modified, it should no longer be taken as a keyword.
     // This modifies keywordStatus in-place.
     let indexToDrop = indicesToDrop[indexInDropList];
     updatedKeywordStatus.splice(indexToDrop, 1);
@@ -44017,7 +44017,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
     let keyword = keywordsPlusBrackets[i][0];
     if (keyword == '(') {
       // Query depth increases by one step. This is a new location.
-      currentDepth += 1;
+      currentDepth++;
       depthString = buildDepthString(currentDepth, previousDepths);
       // Initialize object tracking for new depth.
       returnObject[depthString] = {keywordArray: []};
@@ -44220,7 +44220,7 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
       // This indicates the mainDetectedAt keyword may be appearing too late.
       sameDetectedAtWord.push({'mistakeWord_index': 
                                   mistakeList[mistakeIndex].mistakeWord[0],
-                               'mistakeIndex': mistakeIndex})
+                               'mistakeIndex': mistakeIndex});
     }
     // Else: This mistake in the list was not related to current mainMistake.
   }
@@ -44272,12 +44272,10 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     }
 
     // Remove from back to front, to not affect the indices to remove.
-    // TODO: or keep the one with the last location? I'm not sure.
     mistakeIndicesToDrop.sort((a,b) => b - a);
 
     for (let indexInDropList in mistakeIndicesToDrop) {
       // This removes the item from the list in place, modifying mistakeList.
-      // TODO/NOTE: see TODO below, it would have an effect here (if statement)
       let indexToDrop = mistakeIndicesToDrop[indexInDropList];
       mistakeList.splice(indexToDrop, 1);
     }
@@ -44285,10 +44283,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     // After removal, call from this same place in the array again to be safe
     //   and check the biggest item again to ensure it has no other connections
     //   with other mistakes that should also be taken into account.
-    // TODO: if it does, and this gets replaced again... that may be a problem.
-    //       should I add a flag replaceCurrentIndex with default=True, called
-    //       from here with replaceCurrentIndex=false so that the item that is
-    //       to be replaced is instead moved to the end of the array? Maybe.
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
     
     // Note: next step (outside this function) is to use that mistake as an
@@ -44322,17 +44316,9 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
         mistakeIndicesToDrop.push(sameDetectedAtWord[index].mistakeIndex);
       }
     }
-    
-    // Move the biggest found mistake to where the current main mistake is, and
-    //   remove all the other smaller related mistake logs. Remove from back to
-    //   front, to not affect the indices to remove.
-    // TODO: or keep the one with the last location? I'm not sure.
 
     // Move the biggest found mistake to where the current main mistake is, and
     //   remove all the other smaller related mistake logs.
-
-    let sameDetectedAtWord = [{'mistakeWord_index': mainMistakeWordIndex,
-                               'mistakeIndex': arrayIndex}];
 
     // Only modify if the current arrayIndex wasn't already biggestMistake.
     if (smallestDetectedAtWord.mistakeIndex !== arrayIndex) {
@@ -44346,12 +44332,10 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     }
 
     // Remove from back to front, to not affect the indices to remove.
-    // TODO: or keep the one with the last location? I'm not sure.
     mistakeIndicesToDrop.sort((a,b) => b - a);
 
     for (let indexInDropList in mistakeIndicesToDrop) {
       // This removes the item from the list in place, modifying mistakeList.
-      // TODO/NOTE: see TODO below, it would have an effect here (if statement)
       let indexToDrop = mistakeIndicesToDrop[indexInDropList];
       mistakeList.splice(indexToDrop, 1);
     }
@@ -44359,10 +44343,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     // After removal, call from this same place in the array again to be safe
     //   and check the biggest item again to ensure it has no other connections
     //   with other mistakes that should also be taken into account.
-    // TODO: if it does, and this gets replaced again... that may be a problem.
-    //       should I add a flag replaceCurrentIndex with default=True, called
-    //       from here with replaceCurrentIndex=false so that the item that is
-    //       to be replaced is instead moved to the end of the array? Maybe.
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
 
     // Note: next step (outside this function) is to use that mistake as an
@@ -44373,6 +44353,8 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     //  where to insert).
   }
   else {
+    // I don't think this is possible, but if it occurs give an errors message
+    //   here to describe that something and wrong and how/where it happened.
     throw Error('sameMistakeWord.length === sameDetectedAtWord.length, but both '
                 + 'mistakeWord and detectedAtWord appear in other mistakes too. '
                 + 'I do not know what to do with this.');
@@ -44381,198 +44363,347 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   // This function ending allows for iterating over the array while also
   //   modifying it. (using a for loop on the array and modifying it in the
   //   for loop does not result in the intended behavior)
-  if (arrayIndex + 1 < mistakeList.length) {
-    return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
+  // TODO: I thought this was needed, but coverage report suggests it is never
+  //   called. Removing it also doesn't break anything. I'm... not sure.
+  // if (arrayIndex + 1 < mistakeList.length) {
+  //   return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
+  // }
+}
+
+
+function cascadingKeywordStartEndShift(keywordsPerLevel, shiftFromLevel,
+                                       shiftFromIndexInLevel, shiftBy) {
+  let levelNames = Object.keys(keywordsPerLevel);
+  let indexOfStartLevel = levelNames.indexOf(shiftFromLevel);
+
+  // Determine from where to start shifting all further items.
+  let firstIteration = true;
+  let levelToShiftIn = keywordsPerLevel[shiftFromLevel].keywordArray;
+  let startShiftingFrom = shiftFromIndexInLevel;
+
+  for (let levelIndex = indexOfStartLevel; levelIndex < levelNames.length; levelIndex++) {
+    if (!firstIteration) {
+      // Get the next level to shift keywords forward in from the top.
+      let levelName = levelNames[levelIndex];
+      levelToShiftIn = keywordsPerLevel[levelName].keywordArray;
+      startShiftingFrom = 0;
+    }
+
+    for (let keywordIndex = startShiftingFrom; keywordIndex < levelToShiftIn.length; keywordIndex++) {
+      levelToShiftIn[keywordIndex][1] += shiftBy;
+      levelToShiftIn[keywordIndex][2] += shiftBy;
+    }
+
+    firstIteration = false;
   }
 }
 
 
-function fixSingleWhereWithAgg(levelMistakes, levelKeywords, query) {
-  /* This function handles:
-     - Single WHERE with aggregation
-  */ 
-  throw Error('TODO: implement this.');
+function findNextNonOpenBracketChar(searchString, searchFromIndex=0) {
+  for (let i = searchFromIndex; i < searchString.length; i++) {
+    let character = searchString.slice(i, i+1);
+    if (character !== '(') {
+      return character;
+    }
+  }
+  return '';
+}
+
+function removeTextBetweenBrackets(stringToChange) {
+  let openingBrackets = allIndicesOf(stringToChange, '(');
+  let closingBrackets = allIndicesOf(stringToChange, ')');
+
+  if (openingBrackets.length !== closingBrackets.length) {
+    throw Error('At least one bracket in string ' + stringToChange
+                + ' is not closed properly.');
+  }
+
+  while (true) {
+    openingBrackets = allIndicesOf(stringToChange, '(');
+    let bracketsInstantClosed = [];
+    
+    // For every opening bracket, check if it is immediately followed by a
+    //   closing bracket.
+    for (let i in openingBrackets) {
+      let bracketLocation = openingBrackets[i];
+      bracketsInstantClosed.push(findNextNonOpenBracketChar(stringToChange,
+                                                            bracketLocation+1) === ')'
+                                 ? true : false);
+    }
+
+    // Check if all seen brackets are immediately followed by a
+    //   closing bracket.
+    if (bracketsInstantClosed.every(Boolean)) {
+      return stringToChange;
+    }
+    else {
+      // At least one bracket is not immediately closed. Find the last not
+      //   immediately closed one, and remove all text between it and the
+      //   first closing bracket we see after its start.
+      let yetToCutIndices = allIndicesOf(bracketsInstantClosed, false);
+      let bracketToCloseAtIndex = openingBrackets[yetToCutIndices[yetToCutIndices.length-1]];
+
+      let upToBracket = stringToChange.slice(0, bracketToCloseAtIndex+1);
+      let fromBracket = stringToChange.slice(bracketToCloseAtIndex+1);
+      let firstClosingBracketAt = fromBracket.indexOf(')');
+      fromBracket = fromBracket.slice(firstClosingBracketAt);
+
+      stringToChange = upToBracket + fromBracket;
+    }
+  }
 }
 
 
-function doubleWhereDetection(levelMistakes, levelKeywords, query) {
+function fixSingleWrongWhere(keywordsPerLevel, query) {
+
+  // This function handles situations with a single WHERE with aggregation,
+  //   and will only do anything if there is just one WHERE in the given level.
+  // A misplaced WHERE coming after a GROUP BY will NOT be fixed because of
+  //   that in particular, as we attempt to fix that by moving the GROUP BY
+  //   instead.
+
   const aggregateFuncs = ['avg', 'count', 'group_concat', 'max',
                           'min', 'sum', 'total'];
+  const expectedWhereIndex = 5; // Count in expectedOrder in another function.
   const whereLength = 'WHERE'.length; // Just to avoid magic numbers.
+  let foundIssues = {};
 
-  let keywordsInLevel = levelKeywords.map(x => x[0]);
+  for (let levelName in keywordsPerLevel) {
+    let levelKeywords = keywordsPerLevel[levelName].keywordArray;
 
-  // The query may be modified, but as it is not passed around as a reference
-  //   unlike the other arguments, the new version must be returned. To make
-  //   handling of different situations and variables consistent, 
-  //   keep & return copies of everything.
-  let changedQuery = query;
-  let returnObject = {'levelMistakes': [...levelMistakes],
-                      'levelKeywords': [...levelKeywords],
-                      'changedQuery': changedQuery};
+    let keywordsInLevel = levelKeywords.map(x => x[0]);
+    let whereIndices = allIndicesOf(keywordsInLevel, 'where');
+    
+    if (whereIndices.length !== 1) {
+      // This function should not attempt to change things, it should only work
+      //   on (sub-)queries with only one WHERE. Return data unmodified.
+      continue;
+    }
+    else {
+      const whereInfo = levelKeywords[whereIndices[0]];
 
-  const lowercaseQuery = query.toLowerCase();
+      const whereStart = whereInfo[1];
+      const whereEnd = whereInfo[2];
+      const whereSlice = query.slice(whereStart, whereEnd);
 
-  for (let mistakeIndex in returnObject.levelMistakes) {
-    let mistake = returnObject.levelMistakes[mistakeIndex];
-    if (mistake.mistakeWord[0] === mistake.detectedAtKeyword[0]
-        && mistake.mistakeWord[1][0] === 'where') {
-      // This detected error was a double WHERE. If the second WHERE contains
-      //   aggregation and/or appears behind a GROUP BY, it likely should have
-      //   been having instead.
-      let secondWhereStart = mistake.detectedAtKeyword[1][1];
-      let secondWhereEnd = mistake.detectedAtKeyword[1][2];
-      let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd);
-      let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart,
-                                                       secondWhereEnd);
-
-      // Check if there is any aggregation used in the second WHERE. If so,
-      //   it will be turned into a HAVING statement instead.
+      // Create a lowercase version of the WHERE section in the level we
+      //   are looking at, and remove everything within brackets to avoid
+      //   triggering on aggregation within a subquery within the WHERE.
+      const lowercaseQuery = query.toLowerCase();
+      let lowerWhereSlice = lowercaseQuery.slice(whereStart, whereEnd);
+      lowerWhereSlice = removeTextBetweenBrackets(lowerWhereSlice);
+      
       let aggrFuncFound = false;
       for (let aggrFuncIndex in aggregateFuncs) {
-        if (lowerSecondWhereSlice.includes(aggregateFuncs[aggrFuncIndex])) {
+        if (lowerWhereSlice.includes(aggregateFuncs[aggrFuncIndex])) {
           aggrFuncFound = true;
           break;
         }
       }
 
-      // Check if a GROUP BY appears before the second WHERE. If so, it will
-      //   be turned into a HAVING statement instead.
-      let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
-      let groupByIndex = keywordsInLevel.indexOf('group by');
-      let groupByBefore2ndWhere =  groupByIndex < secondWhereIndex ? true : false;
-
-      // Check if the second detected WHERE comes right after the first one
-      //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
-      //   turned into an AND statement instead.
-      let directlySubsequentWhere = 
-        mistake.mistakeWord[1][2] + 1 === secondWhereStart ? true : false;
-
-      if (aggrFuncFound || groupByBefore2ndWhere) {
-        if (keywordsInLevel.includes('having')) {
-          // The second WHERE should be a HAVING, but there already is one so
-          //   we cannot just change the word WHERE. Move this second WHERE to
-          //   appear after the HAVING as an AND, and adjust accordingly.
-          let havingKeywordIndex = keywordsInLevel.indexOf('having');
-          let havingEndLocation = returnObject.levelKeywords[havingKeywordIndex][2];
-          let secondWhereLength = secondWhereSlice.length;
-
-          // Different behavior based on whether second WHERE or HAVING appears
-          //   first, as first changing the later-appearing one makes things
-          //   more straightforward.
-          if (secondWhereIndex < havingKeywordIndex) {
-            // The second WHERE happened before the HAVING statement.
-            // First, add the second WHERE to its new location and make it AND.
-            let replacementString = ' AND ';
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     havingEndLocation,
-                                                     0,
-                                                     secondWhereSlice);
-
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     havingEndLocation,
-                                                     whereLength,
-                                                     replacementString);
-
-            // Second, remove the second WHERE from its old location
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     secondWhereStart,
-                                                     secondWhereLength);
-
-            /*
-            This change affects the start and end indices of every item that
-            was in between the WHERE and the HAVING, and also the WHERE and
-            HAVING themselves (HAVING start moves forward, the WHERE is lost).
-            All keywords after the WHERE but before the HAVING occur sooner, but
-            those after the HAVING (and moved WHERE) are still on the same indices.
-            */
-            for (let i = secondWhereIndex; i < havingKeywordIndex; i++) {
-              returnObject.levelKeywords[i][1] -= secondWhereLength;
-              returnObject.levelKeywords[i][2] -= secondWhereLength;
-            }
-            returnObject.levelKeywords[havingKeywordIndex][1] -= secondWhereLength;
-          }
-          else {
-            // The HAVING happened before the second WHERE.
-            // First, remove the second WHERE from its old location.
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     secondWhereStart,
-                                                     secondWhereLength);
-
-            // Second, re-add the second WHERE and make it AND.
-            let replacementString = ' AND ';
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     havingEndLocation,
-                                                     0,
-                                                     secondWhereSlice);
-
-            returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                     havingEndLocation,
-                                                     whereLength,
-                                                     replacementString);
-
-            // Same reasoning as just above, in the other half of the if.
-            returnObject.levelKeywords[havingKeywordIndex][2] += secondWhereLength;
-            for (let i = havingKeywordIndex; i < secondWhereIndex; i++) {
-              returnObject.levelKeywords[i][1] += secondWhereLength;
-              returnObject.levelKeywords[i][2] += secondWhereLength;
-            }
-          }
-
-          // Also update the found mistake to reflect the change
-          mistake.handledBy = 'WHERE->HAVING';
-
-          // Finally, delete the WHERE. This changes keyword array indices,
-          //   so we rebuild keywordsInLevel afterwards to update it too.
-          returnObject.levelKeywords.splice(secondWhereIndex, 1);
-          keywordsInLevel = returnObject.levelKeywords.map(x => x[0]);
-        }
-        else {
-          // The second WHERE should be a HAVING, and there does not exist one
-          //   already. Change the keyword itself, no need to move anything.
-          let replacementString = 'HAVING';
-          returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                   secondWhereStart, whereLength,
-                                                   replacementString);
-
-          // As HAVING has one character more than WHERE, every start & end
-          //   index after the start of this now-HAVING must be offset by 1.
-          returnObject.levelKeywords[secondWhereIndex][0] = 'having';
-          returnObject.levelKeywords[secondWhereIndex][2] = 
-              returnObject.levelKeywords[secondWhereIndex][2] + 1;
-
-          for (let i = secondWhereIndex + 1; i < returnObject.levelKeywords.length; i++) {
-            returnObject.levelKeywords[i][1] = returnObject.levelKeywords[i][1] + 1;
-            returnObject.levelKeywords[i][2] = returnObject.levelKeywords[i][2] + 1;
-          }
-
-          // Also update the found mistake to reflect the change
-          mistake.handledBy = 'WHERE->HAVING';
-        }
-      } else if (directlySubsequentWhere) {
-        // Make the second where an AND of the first WHERE instead, and fill
-        //   the extra space with spaces so all indices after this remain fine.
-        let replacementString = 'AND  ';
-        returnObject.changedQuery = stringSplice(returnObject.changedQuery,
-                                                 secondWhereStart, whereLength,
-                                                 replacementString);
-        
-        // Handle the WHERE merge and reset keywordsInLevel.
-        returnObject.levelKeywords[secondWhereIndex-1][2] = secondWhereEnd;
-        returnObject.levelKeywords.splice(secondWhereIndex, 1);
-        keywordsInLevel = returnObject.levelKeywords.map(x => x[0]);
-        
-        // Also update the found mistake to reflect the change.
-        mistake.handledBy = 'WHERE->AND';
+      if (!aggrFuncFound) {
+        // This one WHERE does not contain aggregation, so it should probably
+        //   stay a WHERE instead of becoming HAVING. We change nothing here.
+        continue;
       }
       else {
-        throw Error('There is a second WHERE in the query for which we are '
-                    + 'unable to determine how to work around it.');
+        // There is one WHERE, and it has aggregation inside it. We should make
+        //   it a HAVING statement. Adjust the query itself, and the keyword
+        //   info too as this shifts the starts & ends of all further keywords
+        //   forward one (HAVING has one more letter than WHERE).
+        let replacementString = 'HAVING';
+        query = stringSplice(query, whereStart, whereLength, replacementString);
+
+        // Also create an error in the foundIssues structure, with an appended
+        //   note saying how it was fixed. Use the same word's data twice to
+        //   signify "This keyword was an issue purely by itself".
+        if (typeof foundIssues[levelName] === 'undefined') {
+          foundIssues[levelName] = [];
+        }
+
+        let issue = {mistakeWord: [expectedWhereIndex, levelKeywords[whereIndices[0]]],
+                     detectedAtKeyword: [expectedWhereIndex, levelKeywords[whereIndices[0]]],
+                     handledBy: 'WHERE->HAVING'};
+        foundIssues[levelName].push(issue);
+
+        levelKeywords[whereIndices[0]][0] = 'having';
+        levelKeywords[whereIndices[0]][2]++;
+        cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
+                                      whereIndices[0] + 1, 1);
+
+        // console.log('I broke something.\n'
+        //             + 'Query pre change : ' + query + '\n'
+        //             + 'Query post change: ' + returnObject.changedQuery + '\n'
+        //             + 'whereInfo: [' + whereInfo[0] + ', ' + whereInfo[1] + ', ' + whereInfo[2] + ']');
       }
     }
   }
-
+  
+  // keywordsPerLevel is changed in-place.
+  let returnObject = {'query': query,
+                      'foundIssues': foundIssues};
   return returnObject;
+}
+
+
+function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
+  // The query is the only thing that is returned, the rest is edited in-place.
+
+  const aggregateFuncs = ['avg', 'count', 'group_concat', 'max',
+                          'min', 'sum', 'total'];
+  const whereLength = 'WHERE'.length; // Just to avoid magic numbers.
+
+  for (let levelName in keywordsPerLevel) {
+    let levelKeywords = keywordsPerLevel[levelName].keywordArray;
+    let levelMistakes = foundIssues[levelName];
+    let lowercaseQuery = query.toLowerCase(); // query can change, so update.
+
+    let keywordsInLevel = levelKeywords.map(x => x[0]);
+
+    for (let mistakeIndex in levelMistakes) {
+      let mistake = levelMistakes[mistakeIndex];
+      if (mistake.mistakeWord[0] === mistake.detectedAtKeyword[0]
+          && mistake.mistakeWord[1][0] === 'where') {
+        // This detected error was a double WHERE. If the second WHERE contains
+        //   aggregation and/or appears behind a GROUP BY, it likely should
+        //   have been having instead.
+        let secondWhereStart = mistake.detectedAtKeyword[1][1];
+        let secondWhereEnd = mistake.detectedAtKeyword[1][2];
+        let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd);
+        let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart,
+                                                         secondWhereEnd);
+
+        // Check if there is any aggregation used in the second WHERE. If so,
+        //   it will be turned into a HAVING statement instead.
+        let aggrFuncFound = false;
+        for (let aggrFuncIndex in aggregateFuncs) {
+          if (lowerSecondWhereSlice.includes(aggregateFuncs[aggrFuncIndex])) {
+            aggrFuncFound = true;
+            break;
+          }
+        }
+
+        // Check if a GROUP BY appears before the second WHERE. If so, it will
+        //   be turned into a HAVING statement instead.
+        let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
+        let groupByIndex = keywordsInLevel.indexOf('group by');
+        let groupByBefore2ndWhere =  groupByIndex < secondWhereIndex ? true : false;
+
+        // Check if the second detected WHERE comes right after the first one
+        //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
+        //   turned into an AND statement instead.
+        let directlySubsequentWhere = 
+          mistake.mistakeWord[1][2] + 1 === secondWhereStart ? true : false;
+
+        if (aggrFuncFound || groupByBefore2ndWhere) {
+          if (keywordsInLevel.includes('having')) {
+            // The second WHERE should be a HAVING, but there already is one so
+            //   we cannot just change the word WHERE. Move this second WHERE
+            //   to appear after the HAVING as an AND, and adjust accordingly.
+            let havingKeywordIndex = keywordsInLevel.indexOf('having');
+            let havingEndLocation = levelKeywords[havingKeywordIndex][2];
+            let secondWhereLength = secondWhereSlice.length;
+
+            // Different behavior based on whether second WHERE or HAVING
+            //   appears first, as first changing the later-appearing one makes
+            //   things more straightforward.
+            if (secondWhereIndex < havingKeywordIndex) {
+              // The second WHERE happened before the HAVING statement. First, 
+              //   add the second WHERE to its new location and make it AND.
+              query = stringSplice(query, havingEndLocation, 0, secondWhereSlice);
+
+              let replacementString = ' AND ';
+              query = stringSplice(query, havingEndLocation, whereLength,
+                                   replacementString);
+
+              // Second, remove the second WHERE from its old location
+              query = stringSplice(query, secondWhereStart, secondWhereLength);
+
+              /*
+              This change affects the start and end indices of every item
+              that was in between the WHERE and the HAVING, and also the WHERE
+              and HAVING themselves (HAVING start moves forward, the WHERE is
+              lost). All keywords after the WHERE but before the HAVING occur
+              sooner, but those after the HAVING (and moved WHERE) are still
+              on the same indices.
+              */
+              for (let i = secondWhereIndex; i < havingKeywordIndex; i++) {
+                levelKeywords[i][1] -= secondWhereLength;
+                levelKeywords[i][2] -= secondWhereLength;
+              }
+              levelKeywords[havingKeywordIndex][1] -= secondWhereLength;
+            }
+            else {
+              // The HAVING happened before the second WHERE.
+              // First, remove the second WHERE from its old location.
+              query = stringSplice(query, secondWhereStart, secondWhereLength);
+
+              // Second, re-add the second WHERE and make it AND.
+              query = stringSplice(query, havingEndLocation, 0,
+                                   secondWhereSlice);
+
+              let replacementString = ' AND ';
+              query = stringSplice(query, havingEndLocation, whereLength,
+                                   replacementString);
+
+              // Same reasoning as just above, in the other half of the if.
+              levelKeywords[havingKeywordIndex][2] += secondWhereLength;
+              for (let i = havingKeywordIndex; i < secondWhereIndex; i++) {
+                levelKeywords[i][1] += secondWhereLength;
+                levelKeywords[i][2] += secondWhereLength;
+              }
+            }
+
+            // Also update the found mistake to reflect the change
+            mistake.handledBy = 'WHERE->HAVING';
+
+            // Finally, delete the WHERE. This changes keyword array indices,
+            //   so we rebuild keywordsInLevel afterwards to update it too.
+            levelKeywords.splice(secondWhereIndex, 1);
+            keywordsInLevel = levelKeywords.map(x => x[0]);
+          }
+          else {
+            // The second WHERE should be a HAVING, and there does not exist one
+            //   already. Change the keyword itself, no need to move anything.
+            let replacementString = 'HAVING';
+            query = stringSplice(query, secondWhereStart, whereLength,
+                                 replacementString);
+
+            // As HAVING has one character more than WHERE, every start & end
+            //   index after the start of this now-HAVING must be offset by 1.
+            levelKeywords[secondWhereIndex][0] = 'having';
+            levelKeywords[secondWhereIndex][2]++;
+
+            cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
+                                          secondWhereIndex + 1, 1);
+
+            // Also update the found mistake to reflect the change
+            mistake.handledBy = 'WHERE->HAVING';
+          }
+        } else if (directlySubsequentWhere) {
+          // Make the second where an AND of the first WHERE instead, and fill
+          //   the extra space with spaces so all indices after this remain fine.
+          let replacementString = 'AND  ';
+          query = stringSplice(query, secondWhereStart, whereLength, replacementString);
+          
+          // Handle the WHERE merge and reset keywordsInLevel.
+          levelKeywords[secondWhereIndex-1][2] = secondWhereEnd;
+          levelKeywords.splice(secondWhereIndex, 1);
+          keywordsInLevel = levelKeywords.map(x => x[0]);
+          
+          // Also update the found mistake to reflect the change.
+          mistake.handledBy = 'WHERE->AND';
+        }
+        else {
+          // Not sure there exists a way to trigger this, but in case it happens
+          //   give a clear error message.
+          throw Error('There is a second WHERE in the query for which we are '
+                      + 'unable to determine how to work around it.');
+        }
+      }
+    }
+  }
+  return query;
 }
 
 
@@ -44676,12 +44807,6 @@ function forcedReordering(query, keywordsPerLevel) {
 
 
 function attemptOrderingFix(query) {
-  // High prio:
-  // TODO: WHERE -> HAVING if the "WHERE" uses agg
-  //    -> Should be detected and changed early on
-  //    -> Repeated keywords are not handled well by forcedReordering
-  // TODO: handle FUNCTION(GROUP BY column) situations correctly
-
   // Lower prio:
   // TODO: intentionally ignoring UNION for now, because it
   //   makes things more complicated.
@@ -44699,7 +44824,6 @@ function attemptOrderingFix(query) {
   const lowercaseQuery = query.toLowerCase();
 
   let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind, true);
-  // console.log(query);
 
   let returnObject = handleImproperGroupByPlacement(query, keywordStatus);
   query = returnObject.changedQuery;
@@ -44752,6 +44876,12 @@ function attemptOrderingFix(query) {
   //   console.log(keywordsPerLevel.level_1_0.keywordArray);
   // }
   // throw Error('nee.');
+
+  // TODO: make use of singleWhereIssues!
+  returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
+  query = returnObject.query;
+  let singleWhereIssues = returnObject.foundIssues;
+
   
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // NOTE: duplicate keywords are detected as issues here, and should
@@ -44774,17 +44904,15 @@ function attemptOrderingFix(query) {
     let levelMistakes = foundIssues[levelName];
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
 
-    // console.log('Query: \n' + query + '\n'
-    //             + 'Calling onlyKeepBiggestMistakes for level ' + levelName);
     onlyKeepBiggestMistakes(levelMistakes);
 
-    // TODO: implement something to do double WHERE detection. Focus only
-    //   on WHERE as only that is related to the grouping/agg scope for me.
-    returnObject = doubleWhereDetection(levelMistakes, levelKeywords, query);
-    query = returnObject.changedQuery;
-    foundIssues[levelName] = returnObject.levelMistakes;
-    keywordsPerLevel[levelName].keywordArray = returnObject.levelKeywords;
+    // query = doubleWhereDetection(levelMistakes, levelKeywords, query);
+    // query = returnObject.changedQuery;
+    // foundIssues[levelName] = returnObject.levelMistakes;
+    // keywordsPerLevel[levelName].keywordArray = returnObject.levelKeywords;
   }
+
+  query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
 
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
@@ -44794,84 +44922,6 @@ function attemptOrderingFix(query) {
   return {'reorganizedQuery': reorganizedQuery,
           'improperGroupByLocations': improperGroupByData,
           'foundIssues': foundIssues};
-
-  
-
-
-
-
-
-  // Now do processing based on errors found per level
-
-  // for (let i in keywordStatus.foundIndices) {
-  //   var startOfExpectedKeyword = keywordStatus.foundIndices[i];
-  //   var startOfRealKeyword = sortedIndices[i];
-
-  //   if (startOfExpectedKeyword !== startOfRealKeyword) {
-  //     // At least one keyword appears out of order.
-      
-  //     // sortedIndex is where this keyword is expected,
-  //     //   but it is actually here:
-  //     // (keywordStatus lists the found keywords in their expected order)
-  //     var shouldBeAtIndex = keywordStatus.foundIndices.indexOf(startOfRealKeyword);
-  //     var misplacedKeyword = keywordStatus.foundKeywords[shouldBeAtIndex];
-
-  //     var sliceFrom = startOfRealKeyword;
-  //     var sliceTo = sortedIndices[i+1];
-  //     var partToMove = query.slice(sliceFrom, sliceTo);
-
-  //     var shouldStartAt = keywordStatus.foundIndices.slice(shouldBeAtIndex).reduce((a,b) => {return a+b});
-
-  //     var beforeError = query.slice(0, sliceFrom);
-  //     var afterError = query.slice(sliceTo);
-
-  //     console.log('Keyword misplaced: ' + misplacedKeyword);
-  //     return;        
-  //   }
-
-  var contentsPerKeyword = {};
-  var outOfOrderKeywordCounter = 0;
-
-  for (let i = 0; i < sortedIndices.length; i++) {
-    var keywordStartsAt = sortedIndices[i];
-    // At the last index normal nextKeyword behavior goes OOB, so avoid that.
-    var nextKeywordStartsAt = (i < sortedIndices.length - 1 ? sortedIndices[i+1] : query.length + 1);
-
-    var shouldBeAtIndex = keywordStatus.foundIndices.indexOf(keywordStartsAt);
-    var thisIsKeyword = keywordStatus.foundKeywords[shouldBeAtIndex];
-    
-    // This is used for query reconstruction.
-    var keywordContents = query.slice(keywordStartsAt, nextKeywordStartsAt - 1);
-    contentsPerKeyword[thisIsKeyword] = keywordContents;
-
-    // Check if this keyword appears earlier than it should, by checking if this
-    //   keyword appears before the next expected keyword.
-    // TODO: known issue: if a keyword is later than expected, e.g. FROM at the
-    //   end of a query, this approach instead calls everything before it early.
-    var expectedKeywordStartsAt = keywordStatus.foundIndices[i - outOfOrderKeywordCounter];
-    if (keywordStartsAt < expectedKeywordStartsAt) {
-      outOfOrderKeywordCounter++;
-      console.log('Earlier than expected: ' + thisIsKeyword);
-    }
-  }
-
-  var rebuiltQuery = []
-
-  // foundKeywords describes which keywords are in the query,
-  // and contentsPerKeyword shows the contents for said keyword.
-  // Together, these two can be used to rebuild in the right order.
-  for (let i = 0; i < keywordStatus.foundKeywords.length; i++) {
-    var keyword = keywordStatus.foundKeywords[i];
-    rebuiltQuery.push(contentsPerKeyword[keyword]);
-  }
-
-  rebuiltQuery = rebuiltQuery.join(' ');
-
-  // TODO: keep & return changelog of adjustments
-
-  // TODO: GROUP BY -> WHERE with agg = where should be having
-
-  return rebuiltQuery;
 }
 
 
