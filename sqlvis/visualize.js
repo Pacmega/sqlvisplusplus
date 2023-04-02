@@ -44409,6 +44409,7 @@ function findNextNonOpenBracketChar(searchString, searchFromIndex=0) {
   return '';
 }
 
+
 function removeTextBetweenBrackets(stringToChange) {
   let openingBrackets = allIndicesOf(stringToChange, '(');
   let closingBrackets = allIndicesOf(stringToChange, ')');
@@ -44420,7 +44421,12 @@ function removeTextBetweenBrackets(stringToChange) {
 
   while (true) {
     openingBrackets = allIndicesOf(stringToChange, '(');
+    closingBrackets = allIndicesOf(stringToChange, ')');
     let bracketsInstantClosed = [];
+
+    // console.log('Bracket arrays:\n'
+    //             + 'Opening: ' + openingBrackets + '\n'
+    //             + 'Closing: ' + closingBrackets);
     
     // For every opening bracket, check if it is immediately followed by a
     //   closing bracket.
@@ -44445,8 +44451,18 @@ function removeTextBetweenBrackets(stringToChange) {
 
       let upToBracket = stringToChange.slice(0, bracketToCloseAtIndex+1);
       let fromBracket = stringToChange.slice(bracketToCloseAtIndex+1);
-      let firstClosingBracketAt = fromBracket.indexOf(')');
-      fromBracket = fromBracket.slice(firstClosingBracketAt);
+
+      // TODO: should become firstUnusedClosingBracketAt
+      let closingBracketsFromHere = allIndicesOf(fromBracket, ')');
+      let usedClosingBrackets = allIndicesOf(fromBracket, '()');
+      usedClosingBrackets = usedClosingBrackets.map(x => x+1);
+
+      let unusedClosingBrackets = closingBracketsFromHere.filter(bracketIndex => 
+        !usedClosingBrackets.some(usedBracketIndex => bracketIndex === usedBracketIndex));
+
+      let firstUnusedClosingBracketAt = unusedClosingBrackets[0];
+
+      fromBracket = fromBracket.slice(firstUnusedClosingBracketAt);
 
       stringToChange = upToBracket + fromBracket;
     }
@@ -44455,7 +44471,6 @@ function removeTextBetweenBrackets(stringToChange) {
 
 
 function fixSingleWrongWhere(keywordsPerLevel, query) {
-
   // This function handles situations with a single WHERE with aggregation,
   //   and will only do anything if there is just one WHERE in the given level.
   // A misplaced WHERE coming after a GROUP BY will NOT be fixed because of
@@ -44572,6 +44587,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd);
         let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart,
                                                          secondWhereEnd);
+        lowerSecondWhereSlice = removeTextBetweenBrackets(lowerSecondWhereSlice);
 
         // Check if there is any aggregation used in the second WHERE. If so,
         //   it will be turned into a HAVING statement instead.
@@ -44610,10 +44626,10 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             if (secondWhereIndex < havingKeywordIndex) {
               // The second WHERE happened before the HAVING statement. First, 
               //   add the second WHERE to its new location and make it AND.
-              query = stringSplice(query, havingEndLocation, 0, secondWhereSlice);
+              query = stringSplice(query, havingEndLocation + 1, 0, secondWhereSlice);
 
               let replacementString = ' AND ';
-              query = stringSplice(query, havingEndLocation, whereLength,
+              query = stringSplice(query, havingEndLocation + 1, whereLength,
                                    replacementString);
 
               // Second, remove the second WHERE from its old location
@@ -44639,16 +44655,16 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
               query = stringSplice(query, secondWhereStart, secondWhereLength);
 
               // Second, re-add the second WHERE and make it AND.
-              query = stringSplice(query, havingEndLocation, 0,
+              query = stringSplice(query, havingEndLocation + 1, 0,
                                    secondWhereSlice);
 
               let replacementString = ' AND ';
-              query = stringSplice(query, havingEndLocation, whereLength,
+              query = stringSplice(query, havingEndLocation + 1, whereLength,
                                    replacementString);
 
               // Same reasoning as just above, in the other half of the if.
               levelKeywords[havingKeywordIndex][2] += secondWhereLength;
-              for (let i = havingKeywordIndex; i < secondWhereIndex; i++) {
+              for (let i = havingKeywordIndex + 1; i < secondWhereIndex; i++) {
                 levelKeywords[i][1] += secondWhereLength;
                 levelKeywords[i][2] += secondWhereLength;
               }
@@ -44831,20 +44847,6 @@ function attemptOrderingFix(query) {
   let improperGroupByData = returnObject.improperGroupByData;
   
   onlyKeepSubqueryBrackets(keywordStatus);
-  // console.log(keywordStatus);
-  // So now it is of the form:
-  // [
-  //   [ 'select', 0 ],
-  //   [ 'from', 29 ],
-  //   [ 'where', 63 ],
-  //   [ '(', 78 ],
-  //   [ 'select', 79 ],
-  //   [ 'group by', 109 ],
-  //   [ 'from', 141 ],
-  //   [ 'having', 177 ],
-  //   [ ')', 202 ],
-  //   [ 'group by', 222 ]
-  // ]
 
   addKeywordEndings(keywordStatus, query.length);
   // Now it SHOULD BE of the form:
@@ -44882,7 +44884,6 @@ function attemptOrderingFix(query) {
   query = returnObject.query;
   let singleWhereIssues = returnObject.foundIssues;
 
-  
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // NOTE: duplicate keywords are detected as issues here, and should
   //   only be corrected (if possible) after this point.
