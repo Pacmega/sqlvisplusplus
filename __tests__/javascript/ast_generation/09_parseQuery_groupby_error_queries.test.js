@@ -7,6 +7,8 @@ and the ASTs around which these tests were written, look at
 expected_results/expected_asts_groupby_error_queries.json.
 */
 
+// to run: cls & npm test "__tests__/javascript/ast_generation/09_parseQuery_groupby_error_queries.test.js"
+
 const visCode = require('../../../sqlvis/visualize');
 
 test('GROUP BY before SELECT, WHERE with aggregation', () => {
@@ -604,9 +606,9 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(ast.type).toBe('select');
   expect(ast.columns).not.toBeNull();
   expect(ast.from).not.toBeNull();
-  expect(ast.where).not.toBeNull();
+  expect(ast.where).toBeNull();
   expect(ast.groupby).toBeNull();
-  expect(ast.having).toBeNull();
+  expect(ast.having).not.toBeNull();
 
   // Then check contents.
   expect(ast.columns[0].expr.column).toBe('cName');
@@ -619,18 +621,18 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(ast.from[1].as).toBe('p');
   expect(ast.from[1].table).toBe('purchase');
 
-  expect(ast.where.left.left.column).toBe('cID');
-  expect(ast.where.left.left.table).toBe('c');
-  expect(ast.where.left.operator).toBe('=');
-  expect(ast.where.left.right.column).toBe('cID');
-  expect(ast.where.left.right.table).toBe('p');
-  expect(ast.where.operator).toBe('AND');
-  expect(ast.where.right.left.name).toBe('COUNT');
-  expect(ast.where.right.left.type).toBe('aggr_func');
-  expect(ast.where.right.left.args.expr.column).toBe('pID');
-  expect(ast.where.right.left.args.expr.table).toBe('GROUP_BY_p');
-  expect(ast.where.right.operator).toBe('<');
-  expect(ast.where.right.right.value).toBe(5);
+  expect(ast.having.left.left.column).toBe('cID');
+  expect(ast.having.left.left.table).toBe('c');
+  expect(ast.having.left.operator).toBe('=');
+  expect(ast.having.left.right.column).toBe('cID');
+  expect(ast.having.left.right.table).toBe('p');
+  expect(ast.having.operator).toBe('AND');
+  expect(ast.having.right.left.name).toBe('COUNT');
+  expect(ast.having.right.left.type).toBe('aggr_func');
+  expect(ast.having.right.left.args.expr.column).toBe('pID');
+  expect(ast.having.right.left.args.expr.table).toBe('GROUP_BY_p');
+  expect(ast.having.right.operator).toBe('<');
+  expect(ast.having.right.right.value).toBe(5);
 });
 
 
@@ -747,6 +749,7 @@ GROUP BY purchase.price;
   expect(ast.groupby[0].table).toBe('purchase');
 });
 
+
 test('At least one unclear bug in finding biggest mistakes', () => {
   query = `
 SELECT MAX(p.price) as highest_purchase, MIN(p.price)
@@ -759,5 +762,457 @@ FROM customer AS c, purchase AS p
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(ast).toBe('ast');
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
+
+  expect(ast.columns[0].as).toBe('highest_purchase');
+  expect(ast.columns[0].expr.type).toBe('aggr_func');
+  expect(ast.columns[0].expr.name).toBe('MAX');
+  expect(ast.columns[0].expr.args.expr.column).toBe('price');
+  expect(ast.columns[0].expr.args.expr.table).toBe('p');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MIN');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
+
+  expect(ast.groupby[0].column).toBe('cID');
+  expect(ast.groupby[0].table).toBe('c');
+});
+
+
+test('Repeated WHERE instead of using AND', () => {
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID IN (SELECT p2.cID
+                FROM purchase AS p2
+                GROUP BY p2.cID
+                HAVING SUM(p2.price) > 20)
+WHERE c.cID = p.cID
+GROUP BY c.cName;`
+
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('IN');
+  
+  // Subquery happens here
+  expect(ast.where.left.right.value[0].type).toBe('select');
+  expect(ast.where.left.right.type).toBe('expr_list');
+  expect(ast.where.left.right.value[0].columns[0].expr.column).toBe('cID');
+  expect(ast.where.left.right.value[0].columns[0].expr.table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].from[0].as).toBe('p2');
+  expect(ast.where.left.right.value[0].from[0].table).toBe('purchase');
+
+  expect(ast.where.left.right.value[0].groupby[0].column).toBe('cID');
+  expect(ast.where.left.right.value[0].groupby[0].table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].having.left.name).toBe('SUM');
+  expect(ast.where.left.right.value[0].having.left.type).toBe('aggr_func');
+  expect(ast.where.left.right.value[0].having.left.args.expr.column).toBe('price');
+  expect(ast.where.left.right.value[0].having.left.args.expr.table).toBe('p2');
+  expect(ast.where.left.right.value[0].having.operator).toBe('>');
+  expect(ast.where.left.right.value[0].having.right.value).toBe(20);
+  // End of subquery
+
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('cID');
+  expect(ast.where.right.left.table).toBe('c');
+  expect(ast.where.right.operator).toBe('=');
+  expect(ast.where.right.right.column).toBe('cID');
+  expect(ast.where.right.right.table).toBe('p');
+});
+
+test('Directly subsequent WHERE, includes aggregation, no GROUP BY', () => {
+  // This query doesn't really make sense without GROUP BY, but anyway.
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+WHERE MIN(p.price) > 7.5
+ORDER BY c.cName ASC;
+`
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).not.toBeNull();
+  expect(ast.orderby).not.toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
+
+  expect(ast.having.left.type).toBe('aggr_func');
+  expect(ast.having.left.name).toBe('MIN');
+  expect(ast.having.left.args.expr.column).toBe('price');
+  expect(ast.having.left.args.expr.table).toBe('p');
+  expect(ast.having.operator).toBe('>');
+  expect(ast.having.right.value).toBe(7.5);
+
+  expect(ast.orderby[0].type).toBe('ASC');
+  expect(ast.orderby[0].expr.column).toBe('cName');
+  expect(ast.orderby[0].expr.table).toBe('c');
+});
+
+
+test('Second WHERE includes aggregation, with GROUP BY', () => {
+  // Should give the same results as the query above, except now there is a
+  //   GROUP BY present as well.
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+GROUP BY c.cName
+WHERE MIN(p.price) > 7.5
+ORDER BY c.cName ASC;
+`
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
+  expect(ast.orderby).not.toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.type).toBe('aggr_func');
+  expect(ast.having.left.name).toBe('MIN');
+  expect(ast.having.left.args.expr.column).toBe('price');
+  expect(ast.having.left.args.expr.table).toBe('p');
+  expect(ast.having.operator).toBe('>');
+  expect(ast.having.right.value).toBe(7.5);
+
+  expect(ast.orderby[0].type).toBe('ASC');
+  expect(ast.orderby[0].expr.column).toBe('cName');
+  expect(ast.orderby[0].expr.table).toBe('c');
+});
+
+
+test('Second WHERE should be HAVING, with existing HAVING', () => {
+  // Should give the same results as the query above, except now there is a
+  //   GROUP BY present as well.
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+WHERE MIN(p.price) > 7.5
+GROUP BY c.cName
+HAVING COUNT(c.cID) > 5
+ORDER BY c.cName ASC;
+`
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
+  expect(ast.orderby).not.toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.left.type).toBe('aggr_func');
+  expect(ast.having.left.left.name).toBe('COUNT');
+  expect(ast.having.left.left.args.expr.column).toBe('cID');
+  expect(ast.having.left.left.args.expr.table).toBe('c');
+  expect(ast.having.left.operator).toBe('>');
+  expect(ast.having.left.right.value).toBe(5);
+  expect(ast.having.operator).toBe('AND');
+  expect(ast.having.right.left.type).toBe('aggr_func');
+  expect(ast.having.right.left.name).toBe('MIN');
+  expect(ast.having.right.left.args.expr.column).toBe('price');
+  expect(ast.having.right.left.args.expr.table).toBe('p');
+  expect(ast.having.right.operator).toBe('>');
+  expect(ast.having.right.right.value).toBe(7.5);
+
+  expect(ast.orderby[0].type).toBe('ASC');
+  expect(ast.orderby[0].expr.column).toBe('cName');
+  expect(ast.orderby[0].expr.table).toBe('c');
+});
+
+
+test('Second WHERE after HAVING', () => {
+  // An interesting mistake to make.
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID = p.cID
+GROUP BY c.cName
+HAVING COUNT(c.cID) > 5
+WHERE MIN(p.price) > 7.5
+ORDER BY c.cName ASC;
+`
+
+  console.log('Second WHERE after HAVING');
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // These are the exact same checks as the test just above, because the
+  //   rebuilt query is the exact same.
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).not.toBeNull();
+  expect(ast.orderby).not.toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.column).toBe('cID');
+  expect(ast.where.right.table).toBe('p');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.having.left.left.type).toBe('aggr_func');
+  expect(ast.having.left.left.name).toBe('COUNT');
+  expect(ast.having.left.left.args.expr.column).toBe('cID');
+  expect(ast.having.left.left.args.expr.table).toBe('c');
+  expect(ast.having.left.operator).toBe('>');
+  expect(ast.having.left.right.value).toBe(5);
+  expect(ast.having.operator).toBe('AND');
+  expect(ast.having.right.left.type).toBe('aggr_func');
+  expect(ast.having.right.left.name).toBe('MIN');
+  expect(ast.having.right.left.args.expr.column).toBe('price');
+  expect(ast.having.right.left.args.expr.table).toBe('p');
+  expect(ast.having.right.operator).toBe('>');
+  expect(ast.having.right.right.value).toBe(7.5);
+
+  expect(ast.orderby[0].type).toBe('ASC');
+  expect(ast.orderby[0].expr.column).toBe('cName');
+  expect(ast.orderby[0].expr.table).toBe('c');
+});
+
+
+test('Second WHERE should be HAVING, but in subquery', () => {
+  query = `
+SELECT c.cName, MAX(p.price)
+FROM customer AS c, purchase AS p
+WHERE c.cID IN (GROUP BY p2.cID
+                SELECT p2.cID
+                FROM purchase AS p2
+                WHERE p2.cID LIKE '%a%'
+                WHERE COUNT(p2.cID) < 5
+                HAVING SUM(p2.price) > 20)
+AND c.cID = p.cID
+GROUP BY c.cName
+ORDER BY c.cName ASC;`
+
+  console.log('=== Look above here, not down here! ===');
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).not.toBeNull();
+  expect(ast.having).toBeNull();
+  expect(ast.orderby).not.toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('cName');
+  expect(ast.columns[0].expr.table).toBe('c');
+  expect(ast.columns[1].expr.type).toBe('aggr_func');
+  expect(ast.columns[1].expr.name).toBe('MAX');
+  expect(ast.columns[1].expr.args.expr.column).toBe('price');
+  expect(ast.columns[1].expr.args.expr.table).toBe('p');
+
+  expect(ast.from[0].as).toBe('c');
+  expect(ast.from[0].table).toBe('customer');
+  expect(ast.from[1].as).toBe('p');
+  expect(ast.from[1].table).toBe('purchase');
+
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('IN');
+
+  // Subquery happens here
+  expect(ast.where.left.right.value[0].type).toBe('select');
+  expect(ast.where.left.right.type).toBe('expr_list');
+  expect(ast.where.left.right.value[0].columns[0].expr.column).toBe('cID');
+  expect(ast.where.left.right.value[0].columns[0].expr.table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].from[0].as).toBe('p2');
+  expect(ast.where.left.right.value[0].from[0].table).toBe('purchase');
+
+  expect(ast.where.left.right.value[0].where.left.column).toBe('cID');
+  expect(ast.where.left.right.value[0].where.left.table).toBe('p2');
+  expect(ast.where.left.right.value[0].where.operator).toBe('LIKE');
+  expect(ast.where.left.right.value[0].where.right.value).toBe('%a%');
+
+  expect(ast.where.left.right.value[0].groupby[0].column).toBe('cID');
+  expect(ast.where.left.right.value[0].groupby[0].table).toBe('p2');
+
+  expect(ast.where.left.right.value[0].having.left.left.name).toBe('SUM');
+  expect(ast.where.left.right.value[0].having.left.left.type).toBe('aggr_func');
+  expect(ast.where.left.right.value[0].having.left.left.args.expr.column).toBe('price');
+  expect(ast.where.left.right.value[0].having.left.left.args.expr.table).toBe('p2');
+  expect(ast.where.left.right.value[0].having.left.operator).toBe('>');
+  expect(ast.where.left.right.value[0].having.left.right.value).toBe(20);
+  
+  expect(ast.where.left.right.value[0].having.operator).toBe('AND');
+
+  expect(ast.where.left.right.value[0].having.right.left.name).toBe('COUNT');
+  expect(ast.where.left.right.value[0].having.right.left.type).toBe('aggr_func');
+  expect(ast.where.left.right.value[0].having.right.left.args.expr.column).toBe('cID');
+  expect(ast.where.left.right.value[0].having.right.left.args.expr.table).toBe('p2');
+  expect(ast.where.left.right.value[0].having.right.operator).toBe('<');
+  expect(ast.where.left.right.value[0].having.right.right.value).toBe(5);
+  // End of subquery
+
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('cID');
+  expect(ast.where.right.left.table).toBe('c');
+  expect(ast.where.right.operator).toBe('=');
+  expect(ast.where.right.right.column).toBe('cID');
+  expect(ast.where.right.right.table).toBe('p');
+
+  expect(ast.groupby[0].column).toBe('cName');
+  expect(ast.groupby[0].table).toBe('c');
+
+  expect(ast.orderby[0].type).toBe('ASC');
+  expect(ast.orderby[0].expr.column).toBe('cName');
+  expect(ast.orderby[0].expr.table).toBe('c');
 });

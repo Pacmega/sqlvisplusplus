@@ -1,5 +1,5 @@
 
-// to run: cls & npm test "__tests__/javascript/ast_generation/04_findKeywordIssues.test.js"
+// to run: cls & npm test "__tests__/javascript/ast_generation/05_findKeywordIssues.test.js"
 
 /*
 Note 1: as every usage of this function in the main code includes conversion
@@ -183,11 +183,6 @@ WHERE c.cID = p.cID
 GROUP BY c.cName
 WHERE c.cName LIKE '%a%';
 `
-
-  console.log('Second WHERE clause detection note: if the second WHERE was supposed '
-              + 'to be having, it is also going to be out of order with at least the '
-              + 'GROUP BY keyword. Solution: re-check if it is still out of order if '
-              + 'it is interpreted as having instead. This should be done separately.');
 
   const clean_query = visCode.queryTextAdjustments(query);
   const lowercaseQuery = query.toLowerCase();
@@ -652,4 +647,100 @@ WHERE b.alsothat in (SELECT alsothat
   expect(foundIssues.level_1_1).toBeUndefined();
   expect(foundIssues.level_1_2).toBeUndefined();
   expect(foundIssues.level_2_0).toBeUndefined();
+});
+
+
+test('findKeywordIssues - SELECT appearing too late', () => {
+query = `
+  FROM atable AS a, btable AS b
+  WHERE a.id = b.id
+  GROUP BY a.id
+  SELECT a.id, b.price
+  HAVING SUM(b.price) > 10;
+`
+
+  const clean_query = visCode.queryTextAdjustments(query);
+  const lowercaseQuery = query.toLowerCase();
+  let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
+                                                    sortOrderOfAppearance=true);
+
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
+  visCode.onlyKeepSubqueryBrackets(keywordArray);
+  visCode.addKeywordEndings(keywordArray, clean_query.length);
+  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
+
+  // Step 1: check if the biggest error(s) was (were) found correctly.
+  expect(foundIssues.level_0_0).toBeDefined();
+
+  let lateSelectError = {mistakeWord: [itemsToFind.indexOf('from'),
+                                      ["from", 3, 34]],
+                         detectedAtKeyword: [itemsToFind.indexOf('select'),
+                                            ["select", 71, 93]]};
+
+  expect(foundIssues.level_0_0).toContainEqual(lateSelectError);
+
+  // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
+  //   biggest mistakes are kept. This step is why it is currently
+  //   unnecessary to check for every detected item in the previous step.
+  for (levelName in foundIssues) {
+    let mistakes = foundIssues[levelName];
+    visCode.onlyKeepBiggestMistakes(mistakes);
+  };
+
+  let expectedFullLevelZeroErrorList = [lateSelectError];
+  
+  expect(foundIssues.level_0_0).toStrictEqual(expectedFullLevelZeroErrorList);
+});
+
+
+test('findKeywordIssues - Very messed up ordering', () => {
+  query = `
+GROUP BY a.id
+FROM atable AS a, btable AS b
+WHERE a.id = b.id
+SELECT a.id, b.price
+HAVING SUM(b.price) > 10;
+`
+
+  const clean_query = visCode.queryTextAdjustments(query);
+  const lowercaseQuery = query.toLowerCase();
+  let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
+                                                    sortOrderOfAppearance=true);
+
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
+  visCode.onlyKeepSubqueryBrackets(keywordArray);
+  visCode.addKeywordEndings(keywordArray, clean_query.length);
+  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
+
+  // Step 1: check if the biggest error(s) was (were) found correctly.
+  expect(foundIssues.level_0_0).toBeDefined();
+
+  let lateSelectError = {mistakeWord: [itemsToFind.indexOf('from'),
+                                      ["from", 15, 44]],
+                         detectedAtKeyword: [itemsToFind.indexOf('select'),
+                                            ["select", 63, 83]]};
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                      ["group by", 1, 14]],
+                         detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                            ["where", 45, 62]]};
+
+
+  expect(foundIssues.level_0_0).toContainEqual(lateSelectError);
+  expect(foundIssues.level_0_0).toContainEqual(groupByError);
+
+  // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
+  //   biggest mistakes are kept. This step is why it is currently
+  //   unnecessary to check for every detected item in the previous step.
+  for (levelName in foundIssues) {
+    let mistakes = foundIssues[levelName];
+    visCode.onlyKeepBiggestMistakes(mistakes);
+  };
+
+  let expectedFullLevelZeroErrorList = [groupByError, lateSelectError];
+  
+  expect(foundIssues.level_0_0).toStrictEqual(expectedFullLevelZeroErrorList);
 });
