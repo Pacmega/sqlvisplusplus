@@ -44841,10 +44841,16 @@ function attemptOrderingFix(query) {
 
   let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind, true);
 
+  // TODO: remove this
+  let original = query;
+
   let returnObject = handleImproperGroupByPlacement(query, keywordStatus);
   query = returnObject.changedQuery;
   keywordStatus = returnObject.updatedKeywordStatus;
   let improperGroupByData = returnObject.improperGroupByData;
+
+  // TODO: remove this
+  let improperGroupBy = query;
   
   onlyKeepSubqueryBrackets(keywordStatus);
 
@@ -44878,6 +44884,11 @@ function attemptOrderingFix(query) {
   //   console.log(keywordsPerLevel.level_1_0.keywordArray);
   // }
   // throw Error('nee.');
+
+  for (let levelName in keywordsPerLevel) {
+    console.log('Pre-singleWhere keywordArray for ' + levelName + ':\n'
+                + keywordsPerLevel[levelName].keywordArray);
+  }
 
   // TODO: make use of singleWhereIssues!
   returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
@@ -44915,8 +44926,21 @@ function attemptOrderingFix(query) {
 
   query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
 
+
+  for (let levelName in keywordsPerLevel) {
+    console.log('Post doubleWhere keywordArray for ' + levelName + ':\n'
+                + keywordsPerLevel[levelName].keywordArray);
+  }
+
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
+
+  console.log('Ugh, something broke again.\n'
+              + 'Original query   : ' + original + '\n'
+              + 'Post GROUP BY fix: ' + improperGroupBy + '\n'
+              + 'singleWrongWhere : ' + singleWrongWhere + '\n'
+              + 'doubleWrongWhere : ' + query + '\n'
+              + 'Final result     : ' + reorganizedQuery);
 
   // The improperGroupByData has a different format, so it is (currently)
   //   easier to return and handle in that own format.
