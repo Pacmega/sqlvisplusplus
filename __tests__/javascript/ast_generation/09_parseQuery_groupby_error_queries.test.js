@@ -1062,8 +1062,6 @@ WHERE MIN(p.price) > 7.5
 ORDER BY c.cName ASC;
 `
 
-  console.log('Second WHERE after HAVING');
-  
   let clean_query = visCode.queryTextAdjustments(query);
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
@@ -1136,8 +1134,6 @@ AND c.cID = p.cID
 GROUP BY c.cName
 ORDER BY c.cName ASC;`
 
-  console.log('=== Look above here, not down here! ===');
-  
   let clean_query = visCode.queryTextAdjustments(query);
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;

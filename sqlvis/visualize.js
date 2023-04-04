@@ -44041,7 +44041,6 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
   const expectedOrder = ['with', 'select', 'from', 'join', 'on',
                          'where', 'group by', 'having', 'order by'];
   let foundIssues = {};
-  // console.log(keywordsPerLevel);
 
   // For every level, check all keywords that appear. For every keyword,
   //   check if any of the keywords before it either incorrectly appeared
@@ -44841,17 +44840,11 @@ function attemptOrderingFix(query) {
 
   let keywordStatus = findKeywordAppearances(lowercaseQuery, itemsToFind, true);
 
-  // TODO: remove this
-  let original = query;
-
   let returnObject = handleImproperGroupByPlacement(query, keywordStatus);
   query = returnObject.changedQuery;
   keywordStatus = returnObject.updatedKeywordStatus;
   let improperGroupByData = returnObject.improperGroupByData;
 
-  // TODO: remove this
-  let improperGroupBy = query;
-  
   onlyKeepSubqueryBrackets(keywordStatus);
 
   addKeywordEndings(keywordStatus, query.length);
@@ -44885,20 +44878,12 @@ function attemptOrderingFix(query) {
   // }
   // throw Error('nee.');
 
-  for (let levelName in keywordsPerLevel) {
-    console.log('Pre-singleWhere keywordArray for ' + levelName + ':\n'
-                + keywordsPerLevel[levelName].keywordArray);
-  }
-
   // TODO: make use of singleWhereIssues!
   returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
   query = returnObject.query;
   let singleWhereIssues = returnObject.foundIssues;
 
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
-  // NOTE: duplicate keywords are detected as issues here, and should
-  //   only be corrected (if possible) after this point.
-
   // console.log(foundIssues);
   //   ^ function return structure:
   //   If level present, level has issues.
@@ -44917,30 +44902,12 @@ function attemptOrderingFix(query) {
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
 
     onlyKeepBiggestMistakes(levelMistakes);
-
-    // query = doubleWhereDetection(levelMistakes, levelKeywords, query);
-    // query = returnObject.changedQuery;
-    // foundIssues[levelName] = returnObject.levelMistakes;
-    // keywordsPerLevel[levelName].keywordArray = returnObject.levelKeywords;
   }
 
   query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
 
-
-  for (let levelName in keywordsPerLevel) {
-    console.log('Post doubleWhere keywordArray for ' + levelName + ':\n'
-                + keywordsPerLevel[levelName].keywordArray);
-  }
-
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
-
-  console.log('Ugh, something broke again.\n'
-              + 'Original query   : ' + original + '\n'
-              + 'Post GROUP BY fix: ' + improperGroupBy + '\n'
-              + 'singleWrongWhere : ' + singleWrongWhere + '\n'
-              + 'doubleWrongWhere : ' + query + '\n'
-              + 'Final result     : ' + reorganizedQuery);
 
   // The improperGroupByData has a different format, so it is (currently)
   //   easier to return and handle in that own format.
@@ -44949,6 +44916,10 @@ function attemptOrderingFix(query) {
           'foundIssues': foundIssues};
 }
 
+
+function incorporateParsingErrors(ast, foundIssues) {
+  throw Error('OwO notices your parsing errors');
+}
 
 function parseQuery(query) {
   // Generate the AST.
@@ -45004,6 +44975,11 @@ function visualize(query, schema, container, d3) {
   var g = svg
     .append('g')
     .attr('class', 'container');
+
+  // If they exist, incorporate errors found & fixed during parsing
+  if (typeof parseResults.foundIssues !== 'undefined') {
+    incorporateParsingErrors(ast, parseResults.foundIssues);
+  }
 
   // Analyze referencing/scoping
   withClauses = [];
@@ -47094,6 +47070,10 @@ define(function() {
   // e.attemptOrderingFix = function(query) {
   //   return attemptOrderingFix(query);
   // }
+
+  e.incorporateParsingErrors = function(ast, foundIssues) {
+    return incorporateParsingErrors(ast, foundIssues);
+  }
 
   // Test with standard query test set
   e.parseQuery = function(query) {
