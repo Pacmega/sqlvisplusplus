@@ -44005,6 +44005,8 @@ function buildDepthString(currentDepth, previousDepths) {
 
 function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
   let returnObject = {};
+  let lastNonBracketKeyword = '=ERROR='; // =ERROR= should never be seen.
+  let keywordsBeforeDives = [];
   let currentDepth = 0;
   let previousDepths = [];
 
@@ -44020,16 +44022,20 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
       currentDepth++;
       depthString = buildDepthString(currentDepth, previousDepths);
       // Initialize object tracking for new depth.
-      returnObject[depthString] = {keywordArray: []};
+      keywordsBeforeDives.push(lastNonBracketKeyword);
+      returnObject[depthString] = {keywordArray: [],
+          treeDiveStructure: [...keywordsBeforeDives]};
     } else if (keyword == ')') {
       // Query depth decreases by one step. This is not a new instance
       //   of the previous depth however, so take care when rebuilding the
       //   string indicating current depth.
       depthString = buildDepthString(currentDepth - 1, previousDepths);
       previousDepths.push(currentDepth);
+      keywordsBeforeDives.pop();
       currentDepth -= 1;
     } else {
       returnObject[depthString].keywordArray.push(keywordsPlusBrackets[i]);
+      lastNonBracketKeyword = keywordsPlusBrackets[i][0];
     }
   }
 
@@ -44821,6 +44827,21 @@ function forcedReordering(query, keywordsPerLevel) {
 }
 
 
+function combineLevelIssues(combineInto, combineFrom) {
+  for (let levelName in combineFrom) {
+    if (typeof combineInto[levelName] !== 'undefined') {
+      combineInto[levelName].push(...combineFrom[levelName])
+    }
+    else {
+      // Level did not exist yet, so the combination is just the
+      //   things coming from combineFrom.
+      combineInto[levelName] = combineFrom[levelName];
+    }
+  }
+  // combineInto is edited in-place, no return.
+}
+
+
 function attemptOrderingFix(query) {
   // Lower prio:
   // TODO: intentionally ignoring UNION for now, because it
@@ -44878,7 +44899,6 @@ function attemptOrderingFix(query) {
   // }
   // throw Error('nee.');
 
-  // TODO: make use of singleWhereIssues!
   returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
   query = returnObject.query;
   let singleWhereIssues = returnObject.foundIssues;
@@ -44909,17 +44929,23 @@ function attemptOrderingFix(query) {
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
 
+  // Combine the found issues into one larger object.
+  combineLevelIssues(foundIssues, singleWhereIssues);
+  let levelRetracing = 'TODO, currently stuck within keywordsPerLevel';
+
   // The improperGroupByData has a different format, so it is (currently)
   //   easier to return and handle in that own format.
   return {'reorganizedQuery': reorganizedQuery,
           'improperGroupByLocations': improperGroupByData,
-          'foundIssues': foundIssues};
+          'foundIssues': foundIssues,
+          'levelRetracing': levelRetracing};
 }
 
 
 function incorporateParsingErrors(ast, foundIssues) {
   throw Error('OwO notices your parsing errors');
 }
+
 
 function parseQuery(query) {
   // Generate the AST.

@@ -7,7 +7,7 @@ and the ASTs around which these tests were written, look at
 expected_results/expected_asts_groupby_error_queries.json.
 */
 
-// to run: cls & npm test "__tests__/javascript/ast_generation/09_parseQuery_groupby_error_queries.test.js"
+// to run: cls & npm test "__tests__/javascript/incorporateParsingErrors/incorporateParsingErrors_errors.test.js"
 
 const visCode = require('../../../sqlvis/visualize');
 
@@ -29,7 +29,8 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
+  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
 });
 
 
@@ -51,7 +52,8 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
+  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
 });
 
 
@@ -73,7 +75,7 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
 });
 
 
@@ -114,7 +116,8 @@ WHERE c.cName LIKE '%a%';
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.having.mistakes[1]).toContainEqual('misplaced keyword');
 });
 
 
@@ -139,7 +142,8 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
+    'misplaced keyword');
 });
 
 
@@ -164,7 +168,8 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
+    'misplaced keyword');
 });
 
 
@@ -223,7 +228,7 @@ FROM customer, purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
 });
 
 
@@ -245,7 +250,7 @@ FROM customer, purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
 });
 
 
@@ -267,7 +272,7 @@ FROM purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
 });
 
 
@@ -289,7 +294,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.right.left.args.expr.mistakes[0]).toContainEqual(
+    'incorrect usage of keyword');
 });
 
 
@@ -366,7 +372,8 @@ FROM customer AS c, purchase AS p
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
+  expect(ast.from[0].mistakes[0]).toContainEqual('misplaced keyword');
 });
 
 
@@ -390,7 +397,7 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.where.mistakes[0]).toContainEqual('second WHERE');
 });
 
 test('Directly subsequent WHERE, includes aggregation, no GROUP BY', () => {
@@ -412,7 +419,7 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
 });
 
 
@@ -437,7 +444,7 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
 });
 
 
@@ -463,7 +470,8 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.having.mistakes[1]).toContainEqual('WHERE with aggregation');
 });
 
 
@@ -491,7 +499,8 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.having.mistakes[1]).toContainEqual('WHERE with aggregation');
 });
 
 
@@ -518,5 +527,8 @@ ORDER BY c.cName ASC;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
 
   // Check if all errors were incorporated as expected.
-  expect(ast).toBe('AST');
+  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
+    'second WHERE');
+  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
+    'WHERE with aggregation');
 });
