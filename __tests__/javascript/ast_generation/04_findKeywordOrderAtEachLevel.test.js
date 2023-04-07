@@ -34,7 +34,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -45,6 +47,9 @@ WHERE c.cID = SUM(p.cID)
   expect(levelZeroKeywords[1]).toStrictEqual(['select', 18, 46]);
   expect(levelZeroKeywords[2]).toStrictEqual(['from', 47, 80]);
   expect(levelZeroKeywords[3]).toStrictEqual(['where', 81, 104]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -64,7 +69,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -75,6 +82,9 @@ WHERE c.cID = SUM(p.cID)
   expect(levelZeroKeywords[1]).toStrictEqual(['group by', 30, 46]);
   expect(levelZeroKeywords[2]).toStrictEqual(['from', 47, 80]);
   expect(levelZeroKeywords[3]).toStrictEqual(['where', 81, 104]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -94,7 +104,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -105,6 +117,9 @@ WHERE c.cID = SUM(p.cID)
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 30, 63]);
   expect(levelZeroKeywords[2]).toStrictEqual(['group by', 64, 80]);
   expect(levelZeroKeywords[3]).toStrictEqual(['where', 81, 104]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -123,7 +138,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -133,6 +150,9 @@ WHERE c.cID = SUM(p.cID)
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 29]);
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 30, 63]);
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 64, 87]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -153,7 +173,9 @@ WHERE c.cName LIKE '%a%';
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -165,6 +187,9 @@ WHERE c.cName LIKE '%a%';
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 64, 83]);
   expect(levelZeroKeywords[3]).toStrictEqual(['group by', 84, 100]);
   expect(levelZeroKeywords[4]).toStrictEqual(['where', 101, 124]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -187,7 +212,9 @@ GROUP BY c.cName;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -206,6 +233,11 @@ GROUP BY c.cName;`
   expect(levelOneKeywords[1]).toStrictEqual(['select', 112, 141]);
   expect(levelOneKeywords[2]).toStrictEqual(['from', 142, 177]);
   expect(levelOneKeywords[3]).toStrictEqual(['having', 178, 202]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_1_1).not.toBeDefined();
+  expect(levelTreeStructure.level_2_0).not.toBeDefined();
 });
 
 
@@ -228,7 +260,9 @@ GROUP BY c.cName;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -247,6 +281,11 @@ GROUP BY c.cName;`
   expect(levelOneKeywords[1]).toStrictEqual(['group by', 110, 141]);
   expect(levelOneKeywords[2]).toStrictEqual(['from', 142, 177]);
   expect(levelOneKeywords[3]).toStrictEqual(['having', 178, 202]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_1_1).not.toBeDefined();
+  expect(levelTreeStructure.level_2_0).not.toBeDefined();
 });
 
 
@@ -265,7 +304,9 @@ WHERE c.cID = p.cID;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -275,6 +316,9 @@ WHERE c.cID = p.cID;
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 29]);
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 30, 63]);
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 64, 82]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -293,7 +337,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -303,6 +349,9 @@ WHERE c.cID = SUM(p.cID)
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 24]);
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 25, 58]);
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 59, 82]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -320,7 +369,9 @@ FROM customer, purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -331,6 +382,9 @@ FROM customer, purchase
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 43]);
   expect(levelZeroKeywords[2]).toBeUndefined(); // If false, GROUP BY exists.
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 44, 66]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -348,7 +402,9 @@ FROM customer, purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -359,6 +415,9 @@ FROM customer, purchase
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 52]);
   expect(levelZeroKeywords[2]).toBeUndefined(); // If false, GROUP BY exists.
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 53, 75]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -376,7 +435,9 @@ FROM purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -387,6 +448,9 @@ FROM purchase
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 27]);
   expect(levelZeroKeywords[2]).toBeUndefined(); // If false, GROUP BY exists.
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 28, 40]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -408,7 +472,9 @@ AND COUNT(GROUP BY p.pID) < 5;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -419,6 +485,9 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 25, 58]);
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 59, 107]);
   expect(levelZeroKeywords[3]).toBeUndefined();
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -437,7 +506,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -446,7 +517,10 @@ GROUP BY purchase.price;
   // Then check the contents.
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 34]);
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 35, 58]);
-  expect(levelZeroKeywords[2]).toStrictEqual(['group by', 59, 81]);  
+  expect(levelZeroKeywords[2]).toStrictEqual(['group by', 59, 81]); 
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined(); 
 });
 
 
@@ -466,7 +540,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -477,6 +553,9 @@ GROUP BY purchase.price;
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 14, 37]);
   expect(levelZeroKeywords[2]).toStrictEqual(['where', 38, 71]);
   expect(levelZeroKeywords[3]).toStrictEqual(['group by', 72, 94]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -495,7 +574,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -505,6 +586,9 @@ GROUP BY purchase.price;
   expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 13]);
   expect(levelZeroKeywords[1]).toStrictEqual(['from', 14, 37]);
   expect(levelZeroKeywords[2]).toStrictEqual(['group by', 38, 60]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).not.toBeDefined();
 });
 
 
@@ -532,7 +616,9 @@ GROUP BY that;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -557,6 +643,10 @@ GROUP BY that;
   expect(levelOneOneKeywords[0]).toStrictEqual(['select', 103, 134]);
   expect(levelOneOneKeywords[1]).toStrictEqual(['from', 135, 156]); // test receives 135, 143
   expect(levelOneOneKeywords[2]).toStrictEqual(['where', 157, 180]); // test receives 144, 155
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from']);
 });
 
 
@@ -582,7 +672,9 @@ WHERE a.that in (SELECT alsothat
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -606,6 +698,10 @@ WHERE a.that in (SELECT alsothat
   expect(levelTwoZeroKeywords[0]).toStrictEqual(['select', 136, 182]);
   expect(levelTwoZeroKeywords[1]).toStrictEqual(['from', 183, 228]);
   expect(levelTwoZeroKeywords[2]).toStrictEqual(['where', 229, 284]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
 });
 
 
@@ -638,7 +734,9 @@ WHERE b.alsothat in (SELECT alsothat
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
 
   // First check that all expected attributes are indeed there.
   expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
@@ -676,4 +774,10 @@ WHERE b.alsothat in (SELECT alsothat
   expect(levelTwoZeroKeywords[0]).toStrictEqual(['select', 294, 344]);
   expect(levelTwoZeroKeywords[1]).toStrictEqual(['from', 345, 394]);
   expect(levelTwoZeroKeywords[2]).toStrictEqual(['where', 395, 454]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_2).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
 });

@@ -38,7 +38,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -81,7 +83,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -124,7 +128,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -166,7 +172,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -192,7 +200,9 @@ WHERE c.cName LIKE '%a%';
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -245,7 +255,9 @@ GROUP BY c.cName;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -292,7 +304,9 @@ GROUP BY c.cName;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -335,7 +349,9 @@ WHERE c.cID = p.cID;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -359,7 +375,9 @@ WHERE c.cID = SUM(p.cID)
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -382,7 +400,9 @@ FROM customer, purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   console.log('NOTE @ findKeywordIssues: SELECT GROUP BY - As GROUP BY should not appear as a '
@@ -409,7 +429,9 @@ FROM customer, purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // As this query does not contain errors in the keywords that should be
@@ -433,7 +455,9 @@ FROM purchase
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // As this query does not contain errors in the keywords that should be
@@ -458,7 +482,9 @@ AND COUNT(GROUP BY p.pID) < 5;`
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -483,7 +509,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -508,7 +536,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -532,7 +562,9 @@ GROUP BY purchase.price;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors in the keywords, confirm
@@ -565,7 +597,9 @@ GROUP BY that;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -597,7 +631,9 @@ WHERE a.that in (SELECT alsothat
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors, confirm that none of the
@@ -637,7 +673,9 @@ WHERE b.alsothat in (SELECT alsothat
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: as this query does not contain errors, confirm that none of the
@@ -668,7 +706,9 @@ query = `
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
@@ -713,7 +753,9 @@ HAVING SUM(b.price) > 10;
   keywordArray = returnObject.updatedKeywordStatus;
   visCode.onlyKeepSubqueryBrackets(keywordArray);
   visCode.addKeywordEndings(keywordArray, clean_query.length);
-  let keywordsPerLevel = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
   // Step 1: check if the biggest error(s) was (were) found correctly.

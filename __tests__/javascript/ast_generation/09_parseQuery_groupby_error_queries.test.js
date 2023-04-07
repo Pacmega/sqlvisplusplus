@@ -1212,3 +1212,116 @@ ORDER BY c.cName ASC;`
   expect(ast.orderby[0].expr.column).toBe('cName');
   expect(ast.orderby[0].expr.table).toBe('c');
 });
+
+test('Multi-level four subquery mess', () => {
+  // Yes, this is indeed not the most sensible query.
+  query = `
+FROM (SELECT this, that
+      FROM there
+      WHERE this > 7
+     ) as a,
+     (SELECT alsothis, alsothat
+      FROM otherplace
+      WHERE alsothis < 8
+     ) as b
+SELECT a.this
+WHERE a.this = b.that
+WHERE b.alsothat in (SELECT alsothat
+                     WHERE NOT EXISTS (SELECT that
+                                       FROM there
+                                       WHERE that LIKE '%a%'
+                                      )
+                     FROM otherplace
+                    );
+`
+
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
+  expect(ast.orderby).toBeNull();
+
+  // Then check contents.
+  expect(ast.columns[0].expr.column).toBe('this');
+  expect(ast.columns[0].expr.table).toBe('a');
+
+  // First subquery
+  expect(ast.from[0].expr.type).toBe('select');
+  expect(ast.from[0].expr.columns).not.toBeNull();
+  expect(ast.from[0].expr.from).not.toBeNull();
+  expect(ast.from[0].expr.where).not.toBeNull();
+  expect(ast.from[0].expr.groupby).toBeNull();
+  expect(ast.from[0].expr.having).toBeNull();
+  expect(ast.from[0].expr.orderby).toBeNull();
+
+  expect(ast.from[0].as).toBe('a');
+  expect(ast.from[0].expr.columns[0].expr.column).toBe('this');
+  expect(ast.from[0].expr.columns[1].expr.column).toBe('that');
+  expect(ast.from[0].expr.from[0].table).toBe('there');
+  expect(ast.from[0].expr.where.left.column).toBe('this');
+  expect(ast.from[0].expr.where.operator).toBe('>');
+  expect(ast.from[0].expr.where.right.value).toBe(7);
+
+  // Second subquery
+  expect(ast.from[1].expr.type).toBe('select');
+  expect(ast.from[1].expr.columns).not.toBeNull();
+  expect(ast.from[1].expr.from).not.toBeNull();
+  expect(ast.from[1].expr.where).not.toBeNull();
+  expect(ast.from[1].expr.groupby).toBeNull();
+  expect(ast.from[1].expr.having).toBeNull();
+  expect(ast.from[1].expr.orderby).toBeNull();
+
+  expect(ast.from[1].as).toBe('b');
+  expect(ast.from[1].expr.columns[0].expr.column).toBe('alsothis');
+  expect(ast.from[1].expr.columns[1].expr.column).toBe('alsothat');
+  expect(ast.from[1].expr.from[0].table).toBe('otherplace');
+  expect(ast.from[1].expr.where.left.column).toBe('alsothis');
+  expect(ast.from[1].expr.where.operator).toBe('<');
+  expect(ast.from[1].expr.where.right.value).toBe(8);
+
+  // The WHERE statement
+  expect(ast.where.left.left.column).toBe('this');
+  expect(ast.where.left.left.table).toBe('a');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('that');
+  expect(ast.where.left.right.table).toBe('b');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('alsothat');
+  expect(ast.where.right.left.table).toBe('b');
+  expect(ast.where.right.operator).toBe('IN');
+
+  // Third level 1 subquery
+  expect(ast.where.right.right.value[0].type).toBe('select');
+  expect(ast.where.right.right.value[0].columns).not.toBeNull();
+  expect(ast.where.right.right.value[0].from).not.toBeNull();
+  expect(ast.where.right.right.value[0].where).not.toBeNull();
+  expect(ast.where.right.right.value[0].groupby).toBeNull();
+  expect(ast.where.right.right.value[0].having).toBeNull();
+  expect(ast.where.right.right.value[0].orderby).toBeNull();
+
+  expect(ast.where.right.right.value[0].columns[0].expr.column).toBe('alsothat');
+  expect(ast.where.right.right.value[0].from[0].table).toBe('otherplace');
+  expect(ast.where.right.right.value[0].where.operator).toBe('NOT EXISTS');
+  
+  // The level 2 subquery
+  expect(ast.where.right.right.value[0].where.expr.type).toBe('select');
+  expect(ast.where.right.right.value[0].where.expr.columns).not.toBeNull();
+  expect(ast.where.right.right.value[0].where.expr.from).not.toBeNull();
+  expect(ast.where.right.right.value[0].where.expr.where).not.toBeNull();
+  expect(ast.where.right.right.value[0].where.expr.groupby).toBeNull();
+  expect(ast.where.right.right.value[0].where.expr.having).toBeNull();
+  expect(ast.where.right.right.value[0].where.expr.orderby).toBeNull();
+
+  expect(ast.where.right.right.value[0].where.expr.columns[0].expr.column).toBe('that');
+  expect(ast.where.right.right.value[0].where.expr.from[0].table).toBe('there');
+  expect(ast.where.right.right.value[0].where.expr.where.left.column).toBe('that');
+  expect(ast.where.right.right.value[0].where.expr.where.operator).toBe('LIKE');
+  expect(ast.where.right.right.value[0].where.expr.where.right.value).toBe('%a%');
+});

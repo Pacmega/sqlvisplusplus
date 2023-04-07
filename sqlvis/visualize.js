@@ -43806,6 +43806,7 @@ function handleImproperGroupByPlacement(query, keywordStatus) {
   //   return an updated keywordStatus rather than editing in-place.
   const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
                           'where', 'group by', 'having', 'order by'];
+  const expectedGroupByIndex = keywordsToFind.indexOf('group by');
   const subqueryMarkers = ['(', ')'];
 
   let indicesToDrop = [];
@@ -43864,7 +43865,10 @@ function handleImproperGroupByPlacement(query, keywordStatus) {
         // The next item is/was a GROUP BY, which now is instead transformed to
         //   not be a keyword anymore. Mark for deletion.
         indicesToDrop.push(keywordIndex+1);
-        improperGroupByData.push(keywordStatus[keywordIndex+1]);
+        let issue = {mistakeWord: [expectedGroupByIndex, keywordStatus[keywordIndex+1]],
+                     detectedAtKeyword: [expectedGroupByIndex, keywordStatus[keywordIndex+1]],
+                     handledBy: 'GROUP BY ->GROUP_BY_'};
+        improperGroupByData.push(issue);
       }
     }
 
@@ -43880,6 +43884,9 @@ function handleImproperGroupByPlacement(query, keywordStatus) {
     let indexToDrop = indicesToDrop[indexInDropList];
     updatedKeywordStatus.splice(indexToDrop, 1);
   }
+
+  // console.log('improperGroupByData at end of function:\n'
+  //             + improperGroupByData);
 
   let returnObject = {'changedQuery': changedQuery,
                       'improperGroupByData': improperGroupByData,
@@ -44004,7 +44011,14 @@ function buildDepthString(currentDepth, previousDepths) {
 
 
 function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
-  let returnObject = {};
+  /* TODO / known issue: for levelTreeStructure, there is currently no clear
+       way to identify a specific subquery in the same level.
+
+     Proposed solution: currently unknown, but high priority.
+  */
+
+  let keywordsPerLevel = {};
+  let levelTreeStructure = {};
   let lastNonBracketKeyword = '=ERROR='; // =ERROR= should never be seen.
   let keywordsBeforeDives = [];
   let currentDepth = 0;
@@ -44013,31 +44027,50 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
   let depthString = buildDepthString(currentDepth, previousDepths);
 
   // Initialize for initial depth
-  returnObject[depthString] = {keywordArray: []};
+  keywordsPerLevel[depthString] = {keywordArray: []};
+  levelTreeStructure[depthString] = [];
 
   for (let i in keywordsPlusBrackets) {
-    let keyword = keywordsPlusBrackets[i][0];
-    if (keyword == '(') {
+    // The index which is yielded as 0, 1, ... is yielded as a string, but we
+    //   need it as an actual number.
+    let nr_i = Number(i);
+    let keyword = keywordsPlusBrackets[nr_i][0];
+    if (keyword === '(') {
       // Query depth increases by one step. This is a new location.
       currentDepth++;
       depthString = buildDepthString(currentDepth, previousDepths);
       // Initialize object tracking for new depth.
-      keywordsBeforeDives.push(lastNonBracketKeyword);
-      returnObject[depthString] = {keywordArray: [],
-          treeDiveStructure: [...keywordsBeforeDives]};
-    } else if (keyword == ')') {
+      keywordsPerLevel[depthString] = {keywordArray: []};
+
+      if (keywordsPlusBrackets[nr_i-1][0] !== ')') {
+        // If the previous keyword was a closing bracket, this is another
+        //   subquery within the same keyword as the last one and we shouldn't
+        //   modify keywordsBeforeDives. If not, we should modify it.
+        keywordsBeforeDives.push(lastNonBracketKeyword);
+      }
+      levelTreeStructure[depthString] = [...keywordsBeforeDives];
+    } else if (keyword === ')') {
       // Query depth decreases by one step. This is not a new instance
       //   of the previous depth however, so take care when rebuilding the
       //   string indicating current depth.
       depthString = buildDepthString(currentDepth - 1, previousDepths);
       previousDepths.push(currentDepth);
-      keywordsBeforeDives.pop();
       currentDepth -= 1;
+
+      // Check to see if another subquery is coming up within this keyword,
+      //   and drop the keyword from the level tree structure if there is not.
+      if (typeof keywordsPlusBrackets[nr_i+1] !== 'undefined'
+          && keywordsPlusBrackets[nr_i+1][0] !== '(') {
+        keywordsBeforeDives.pop();
+      }
     } else {
-      returnObject[depthString].keywordArray.push(keywordsPlusBrackets[i]);
-      lastNonBracketKeyword = keywordsPlusBrackets[i][0];
+      keywordsPerLevel[depthString].keywordArray.push(keywordsPlusBrackets[nr_i]);
+      lastNonBracketKeyword = keywordsPlusBrackets[nr_i][0];
     }
   }
+
+  let returnObject = {'keywordsPerLevel': keywordsPerLevel,
+                      'levelTreeStructure': levelTreeStructure};
 
   return returnObject;
 }
@@ -44589,7 +44622,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         //   have been having instead.
         let secondWhereStart = mistake.detectedAtKeyword[1][1];
         let secondWhereEnd = mistake.detectedAtKeyword[1][2];
-        let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd);
+        let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd + 1);
         let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart,
                                                          secondWhereEnd);
         lowerSecondWhereSlice = removeTextBetweenBrackets(lowerSecondWhereSlice);
@@ -44608,7 +44641,11 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         //   be turned into a HAVING statement instead.
         let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
         let groupByIndex = keywordsInLevel.indexOf('group by');
-        let groupByBefore2ndWhere =  groupByIndex < secondWhereIndex ? true : false;
+        let groupByBefore2ndWhere = false;
+        if(groupByIndex !== -1 && groupByIndex < secondWhereIndex)
+        {
+          groupByBefore2ndWhere = true;
+        }
 
         // Check if the second detected WHERE comes right after the first one
         //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
@@ -44704,7 +44741,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         } else if (directlySubsequentWhere) {
           // Make the second where an AND of the first WHERE instead, and fill
           //   the extra space with spaces so all indices after this remain fine.
-          let replacementString = 'AND  ';
+          let replacementString = ' AND ';
           query = stringSplice(query, secondWhereStart, whereLength, replacementString);
           
           // Handle the WHERE merge and reset keywordsInLevel.
@@ -44794,7 +44831,7 @@ function forcedReordering(query, keywordsPerLevel) {
     // Replace original subquery by the reconstructed one. The space after
     //   a keyword might have been moved to the end of the subquery, so
     //   trim the query level before splicing it in.
-    reorganizedQueryLevel = reorganizedQueryLevel.trim();
+    // reorganizedQueryLevel = reorganizedQueryLevel.trim();
 
     // ===== Safeguarding components =====
     // TODO: remove safeguards
@@ -44809,6 +44846,10 @@ function forcedReordering(query, keywordsPerLevel) {
     // ===================================
     reorganizedQuery = stringSplice(reorganizedQuery, startLocation,
                                     levelLength + 1, reorganizedQueryLevel);
+
+    // console.log('Changing level: ' + levelName + '\n'
+    //             + 'reorganizedQueryLevel: ' + reorganizedQueryLevel + '\n'
+    //             + 'Query post change: ' + reorganizedQuery);
     
     }
 
@@ -44883,7 +44924,10 @@ function attemptOrderingFix(query) {
   //   [ 'group by', 222, (whatever the end of this query is) ]
   // ]
 
-  let keywordsPerLevel = findKeywordOrderAtEachLevel(keywordStatus);
+  returnObject = findKeywordOrderAtEachLevel(keywordStatus);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
+
   // console.log(keywordsPerLevel);
   // ^ function return structure: 
   // {'level_0_0': {keywordArray: [keywords]},
@@ -44902,6 +44946,8 @@ function attemptOrderingFix(query) {
   returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
   query = returnObject.query;
   let singleWhereIssues = returnObject.foundIssues;
+  // console.log('Status now post fixSingleWrongWhere:\n'
+  //             + query);
 
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // console.log(foundIssues);
@@ -44917,28 +44963,41 @@ function attemptOrderingFix(query) {
   // All levels mentioned in foundIssues have issues, levels not mentioned
   //   are okay as is. Clean up the collection so that it only contains
   //   the real mistakes, and not also every smaller version of them.
+  // console.log('keywordsPerLevel: \n'
+  //             + keywordsPerLevel);
   for (let levelName in foundIssues) {
     let levelMistakes = foundIssues[levelName];
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
+    // console.log('levelKeywords for level ' + levelName + '\n'
+    //             + levelKeywords);
 
     onlyKeepBiggestMistakes(levelMistakes);
   }
 
   query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
+  // console.log('Status now post doubleWhereDetection:\n'
+  //             + query);
+
+  // for (let levelName in keywordsPerLevel) {
+  //   let levelKeywords = keywordsPerLevel[levelName].keywordArray;
+  //   console.log('levelKeywords for level ' + levelName + '\n'
+  //               + levelKeywords);
+  // }
 
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
+  // console.log('Status now post forcedReordering:\n'
+  //             + reorganizedQuery);
 
   // Combine the found issues into one larger object.
   combineLevelIssues(foundIssues, singleWhereIssues);
-  let levelRetracing = 'TODO, currently stuck within keywordsPerLevel';
 
-  // The improperGroupByData has a different format, so it is (currently)
+  // improperGroupByData has no concept of levels, so it is (currently)
   //   easier to return and handle in that own format.
   return {'reorganizedQuery': reorganizedQuery,
           'improperGroupByLocations': improperGroupByData,
           'foundIssues': foundIssues,
-          'levelRetracing': levelRetracing};
+          'levelTreeStructure': levelTreeStructure};
 }
 
 
