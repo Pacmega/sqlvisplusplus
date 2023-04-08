@@ -44011,14 +44011,9 @@ function buildDepthString(currentDepth, previousDepths) {
 
 
 function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
-  /* TODO / known issue: for levelTreeStructure, there is currently no clear
-       way to identify a specific subquery in the same level.
-
-     Proposed solution: currently unknown, but high priority.
-  */
-
   let keywordsPerLevel = {};
   let levelTreeStructure = {};
+  let subqueryNumberInKeyword = [0];
   let lastNonBracketKeyword = '=ERROR='; // =ERROR= should never be seen.
   let keywordsBeforeDives = [];
   let currentDepth = 0;
@@ -44037,25 +44032,37 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
     let keyword = keywordsPlusBrackets[nr_i][0];
     if (keyword === '(') {
       // Query depth increases by one step. This is a new location.
+      subqueryNumberInKeyword[currentDepth]++;
       currentDepth++;
       depthString = buildDepthString(currentDepth, previousDepths);
       // Initialize object tracking for new depth.
       keywordsPerLevel[depthString] = {keywordArray: []};
+      subqueryNumberInKeyword.push(0);
 
       if (keywordsPlusBrackets[nr_i-1][0] !== ')') {
         // If the previous keyword was a closing bracket, this is another
         //   subquery within the same keyword as the last one and we shouldn't
         //   modify keywordsBeforeDives. If not, we should modify it.
         keywordsBeforeDives.push(lastNonBracketKeyword);
+        levelTreeStructure[depthString] = [...keywordsBeforeDives];
       }
-      levelTreeStructure[depthString] = [...keywordsBeforeDives];
+      else {
+        // This was not the first subquery within this keyword, so we include
+        //   the number tracking which subquery number this is within that
+        //   keyword so that the subquery can be tracked down in the AST later.
+        let astPathTracker = [...keywordsBeforeDives];
+        astPathTracker.push(subqueryNumberInKeyword[currentDepth-1]);
+        levelTreeStructure[depthString] = astPathTracker;
+      }
+      
     } else if (keyword === ')') {
       // Query depth decreases by one step. This is not a new instance
       //   of the previous depth however, so take care when rebuilding the
       //   string indicating current depth.
       depthString = buildDepthString(currentDepth - 1, previousDepths);
       previousDepths.push(currentDepth);
-      currentDepth -= 1;
+      subqueryNumberInKeyword.pop();
+      currentDepth--;
 
       // Check to see if another subquery is coming up within this keyword,
       //   and drop the keyword from the level tree structure if there is not.
@@ -44066,6 +44073,8 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
     } else {
       keywordsPerLevel[depthString].keywordArray.push(keywordsPlusBrackets[nr_i]);
       lastNonBracketKeyword = keywordsPlusBrackets[nr_i][0];
+      // New keyword, so clear any potential tracked subquery numbers on this depth.
+      subqueryNumberInKeyword[currentDepth] = 0;
     }
   }
 
@@ -44828,22 +44837,6 @@ function forcedReordering(query, keywordsPerLevel) {
 
     reorganizedQueryLevel = reorganizedQueryLevel.join('');
 
-    // Replace original subquery by the reconstructed one. The space after
-    //   a keyword might have been moved to the end of the subquery, so
-    //   trim the query level before splicing it in.
-    // reorganizedQueryLevel = reorganizedQueryLevel.trim();
-
-    // ===== Safeguarding components =====
-    // TODO: remove safeguards
-    // if (levelLength !== reorganizedQueryLevel.length + 1) {
-    //   throw Error('reorganizedQueryLevel length does not match the original level! '
-    //               + 'Original should have length ' + levelLength + ', but '
-    //               + 'reorganization has length ' + reorganizedQueryLevel.length
-    //               + '.\n\nQuery in question: ' + query
-    //               + '\nIntended level slice: ' + query.slice(startLocation, endLocation+1)
-    //               + '\nReorganization made : ' + reorganizedQueryLevel);
-    // }
-    // ===================================
     reorganizedQuery = stringSplice(reorganizedQuery, startLocation,
                                     levelLength + 1, reorganizedQueryLevel);
 
@@ -44852,17 +44845,6 @@ function forcedReordering(query, keywordsPerLevel) {
     //             + 'Query post change: ' + reorganizedQuery);
     
     }
-
-  // ===== Safeguarding components =====
-  // TODO: remove safeguards
-  // if (query.length !== reorganizedQuery.length) {
-  //   throw Error('reorganizedQuery length does not match the original! '
-  //               + 'Original should have length ' + query.length + ', but '
-  //               + 'reorganization has length ' + reorganizedQuery.length
-  //               + '.\n\nThe original query was: ' + query
-  //               + '\nCreated reorganization: ' + reorganizedQuery);
-  // }
-  // ===================================
 
   return reorganizedQuery;
 }
@@ -45001,7 +44983,17 @@ function attemptOrderingFix(query) {
 }
 
 
-function incorporateParsingErrors(ast, foundIssues) {
+function findNamedSubquery(ast, subqueryLocationTrace) {
+  // TODO: Optimize this implementation
+  throw Error('Need to implement this first :)');
+
+}
+
+
+function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
+  for (let levelName in foundIssues) {
+    let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
+  }
   throw Error('OwO notices your parsing errors');
 }
 

@@ -646,7 +646,7 @@ GROUP BY that;
 
   expect(levelTreeStructure.level_0_0).toStrictEqual([]);
   expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
-  expect(levelTreeStructure.level_1_1).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from', 2]);
 });
 
 
@@ -777,7 +777,95 @@ WHERE b.alsothat in (SELECT alsothat
 
   expect(levelTreeStructure.level_0_0).toStrictEqual([]);
   expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
-  expect(levelTreeStructure.level_1_1).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from', 2]);
   expect(levelTreeStructure.level_1_2).toStrictEqual(['where']);
   expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
+});
+
+test('findKeywordOrderAtEachLevel - Five subqueries', () => {
+  // Depths in depths, mainly for checking levelTreeStructure functionality.
+  query = `
+SELECT a.this
+FROM (SELECT this, that
+      FROM there
+      WHERE this > 7
+     ) as a,
+     (SELECT alsothis, alsothat
+      FROM otherplace
+      WHERE alsothis < 8
+     ) as b
+WHERE b.alsothat in (SELECT alsothat
+                     FROM otherplace
+                     WHERE NOT EXISTS (SELECT that
+                                       FROM there
+                                       WHERE that LIKE '%a%'
+                                      )
+                     AND EXISTS (SELECT alsothat
+                                 FROM otherplace
+                                 WHERE alsothat LIKE '%b%') 
+                    );
+`
+
+  const clean_query = visCode.queryTextAdjustments(query);
+  const lowercaseQuery = query.toLowerCase();
+  let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
+                                                    sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
+  visCode.onlyKeepSubqueryBrackets(keywordArray);
+  visCode.addKeywordEndings(keywordArray, clean_query.length);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
+
+  // First check that all expected attributes are indeed there.
+  expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
+  let levelZeroKeywords = keywordsPerLevel.level_0_0.keywordArray;
+
+  expect(keywordsPerLevel.level_1_0.keywordArray).toBeDefined();
+  let levelOneZeroKeywords = keywordsPerLevel.level_1_0.keywordArray;
+
+  expect(keywordsPerLevel.level_1_1.keywordArray).toBeDefined();
+  let levelOneOneKeywords = keywordsPerLevel.level_1_1.keywordArray;
+
+  expect(keywordsPerLevel.level_1_2.keywordArray).toBeDefined();
+  let levelOneTwoKeywords = keywordsPerLevel.level_1_2.keywordArray;
+
+  expect(keywordsPerLevel.level_2_0.keywordArray).toBeDefined();
+  let levelTwoZeroKeywords = keywordsPerLevel.level_2_0.keywordArray;
+  
+  expect(keywordsPerLevel.level_2_1.keywordArray).toBeDefined();
+  let levelTwoOneKeywords = keywordsPerLevel.level_2_1.keywordArray;
+
+  // Then check the contents.
+  expect(levelZeroKeywords[0]).toStrictEqual(['select', 1, 14]);
+  expect(levelZeroKeywords[1]).toStrictEqual(['from', 15, 180]);
+  expect(levelZeroKeywords[2]).toStrictEqual(['where', 181, 636]);
+
+  expect(levelOneZeroKeywords[0]).toStrictEqual(['select', 21, 44]);
+  expect(levelOneZeroKeywords[1]).toStrictEqual(['from', 45, 61]);
+  expect(levelOneZeroKeywords[2]).toStrictEqual(['where', 62, 81]);
+
+  expect(levelOneOneKeywords[0]).toStrictEqual(['select', 96, 127]);
+  expect(levelOneOneKeywords[1]).toStrictEqual(['from', 128, 149]);
+  expect(levelOneOneKeywords[2]).toStrictEqual(['where', 150, 173]);
+
+  expect(levelOneTwoKeywords[0]).toStrictEqual(['select', 202, 238]);
+  expect(levelOneTwoKeywords[1]).toStrictEqual(['from', 239, 275]);
+  expect(levelOneTwoKeywords[2]).toStrictEqual(['where', 276, 635]);
+
+  expect(levelTwoZeroKeywords[0]).toStrictEqual(['select', 294, 344]);
+  expect(levelTwoZeroKeywords[1]).toStrictEqual(['from', 345, 394]);
+  expect(levelTwoZeroKeywords[2]).toStrictEqual(['where', 395, 454]);
+
+  expect(levelTwoOneKeywords[0]).toStrictEqual(['select', 490, 538]);
+  expect(levelTwoOneKeywords[1]).toStrictEqual(['from', 539, 587]);
+  expect(levelTwoOneKeywords[2]).toStrictEqual(['where', 588, 612]);
+
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from', 2]);
+  expect(levelTreeStructure.level_1_2).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
+  expect(levelTreeStructure.level_2_1).toStrictEqual(['where', 'where', 2]);
 });
