@@ -782,6 +782,7 @@ WHERE b.alsothat in (SELECT alsothat
   expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
 });
 
+
 test('findKeywordOrderAtEachLevel - Five subqueries', () => {
   // Depths in depths, mainly for checking levelTreeStructure functionality.
   query = `
@@ -868,4 +869,72 @@ WHERE b.alsothat in (SELECT alsothat
   expect(levelTreeStructure.level_1_2).toStrictEqual(['where']);
   expect(levelTreeStructure.level_2_0).toStrictEqual(['where', 'where']);
   expect(levelTreeStructure.level_2_1).toStrictEqual(['where', 'where', 2]);
+});
+
+test('findKeywordOrderAtEachLevel - levelTreeStructure with many subqueries', () => {
+  // Depths in depths, mainly for checking levelTreeStructure functionality.
+  query = `
+SELECT a.this
+FROM (SELECT this, that
+      FROM there
+      WHERE this > 7
+     ) as a,
+     (SELECT alsothis, alsothat
+      FROM otherplace
+      WHERE alsothis < 8
+      AND alsothat IN (SELECT alsothat
+                       FROM otherplace
+                       WHERE alsothat > 4)
+     ) as b
+WHERE b.alsothat in (SELECT alsothat
+                     FROM otherplace
+                     WHERE NOT EXISTS (SELECT that
+                                       FROM there
+                                       WHERE that LIKE '%a%'
+                                      )
+                     AND EXISTS (SELECT alsothat
+                                 FROM otherplace
+                                 WHERE alsothat LIKE '%b%') 
+                    );
+`
+
+  const clean_query = visCode.queryTextAdjustments(query);
+  const lowercaseQuery = query.toLowerCase();
+  let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
+                                                    sortOrderOfAppearance=true);
+  let returnObject = visCode.handleImproperGroupByPlacement(query, keywordArray);
+  keywordArray = returnObject.updatedKeywordStatus;
+  visCode.onlyKeepSubqueryBrackets(keywordArray);
+  visCode.addKeywordEndings(keywordArray, clean_query.length);
+  returnObject = visCode.findKeywordOrderAtEachLevel(keywordArray);
+  let keywordsPerLevel = returnObject.keywordsPerLevel;
+  let levelTreeStructure = returnObject.levelTreeStructure;
+
+  // First check that all expected attributes are indeed there.
+  expect(keywordsPerLevel.level_0_0.keywordArray).toBeDefined();
+  let levelZeroKeywords = keywordsPerLevel.level_0_0.keywordArray;
+
+  expect(keywordsPerLevel.level_1_0.keywordArray).toBeDefined();
+  let levelOneZeroKeywords = keywordsPerLevel.level_1_0.keywordArray;
+
+  expect(keywordsPerLevel.level_1_1.keywordArray).toBeDefined();
+  let levelOneOneKeywords = keywordsPerLevel.level_1_1.keywordArray;
+
+  expect(keywordsPerLevel.level_1_2.keywordArray).toBeDefined();
+  let levelOneTwoKeywords = keywordsPerLevel.level_1_2.keywordArray;
+
+  expect(keywordsPerLevel.level_2_0.keywordArray).toBeDefined();
+  let levelTwoZeroKeywords = keywordsPerLevel.level_2_0.keywordArray;
+  
+  expect(keywordsPerLevel.level_2_1.keywordArray).toBeDefined();
+  let levelTwoOneKeywords = keywordsPerLevel.level_2_1.keywordArray;
+
+  // Then check the contents.
+  expect(levelTreeStructure.level_0_0).toStrictEqual([]);
+  expect(levelTreeStructure.level_1_0).toStrictEqual(['from']);
+  expect(levelTreeStructure.level_1_1).toStrictEqual(['from', 2]);
+  expect(levelTreeStructure.level_2_0).toStrictEqual(['from', 2, 'where']);
+  expect(levelTreeStructure.level_1_2).toStrictEqual(['where']);
+  expect(levelTreeStructure.level_2_1).toStrictEqual(['where', 'where']);
+  expect(levelTreeStructure.level_2_2).toStrictEqual(['where', 'where', 2]);
 });

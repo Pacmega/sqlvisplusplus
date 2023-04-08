@@ -44038,6 +44038,7 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
       // Initialize object tracking for new depth.
       keywordsPerLevel[depthString] = {keywordArray: []};
       subqueryNumberInKeyword.push(0);
+      
 
       if (keywordsPlusBrackets[nr_i-1][0] !== ')') {
         // If the previous keyword was a closing bracket, this is another
@@ -44046,15 +44047,15 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
         keywordsBeforeDives.push(lastNonBracketKeyword);
         levelTreeStructure[depthString] = [...keywordsBeforeDives];
       }
-      else {
-        // This was not the first subquery within this keyword, so we include
-        //   the number tracking which subquery number this is within that
-        //   keyword so that the subquery can be tracked down in the AST later.
-        let astPathTracker = [...keywordsBeforeDives];
-        astPathTracker.push(subqueryNumberInKeyword[currentDepth-1]);
-        levelTreeStructure[depthString] = astPathTracker;
+      
+      // If this was not the first subquery within this keyword, we include
+      //   the number tracking which subquery number this is within that
+      //   keyword so that the subquery can be tracked down in the AST later.
+      if (subqueryNumberInKeyword[currentDepth-1] > 1) {
+        keywordsBeforeDives.push(subqueryNumberInKeyword[currentDepth-1]);
       }
       
+      levelTreeStructure[depthString] = [...keywordsBeforeDives];      
     } else if (keyword === ')') {
       // Query depth decreases by one step. This is not a new instance
       //   of the previous depth however, so take care when rebuilding the
@@ -44068,6 +44069,9 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
       //   and drop the keyword from the level tree structure if there is not.
       if (typeof keywordsPlusBrackets[nr_i+1] !== 'undefined'
           && keywordsPlusBrackets[nr_i+1][0] !== '(') {
+        if (typeof keywordsBeforeDives.slice(-1)[0] === 'number') {
+          keywordsBeforeDives.pop();
+        }
         keywordsBeforeDives.pop();
       }
     } else {
@@ -44480,8 +44484,7 @@ function removeTextBetweenBrackets(stringToChange) {
     for (let i in openingBrackets) {
       let bracketLocation = openingBrackets[i];
       bracketsInstantClosed.push(findNextNonOpenBracketChar(stringToChange,
-                                                            bracketLocation+1) === ')'
-                                 ? true : false);
+                                                            bracketLocation+1) === ')');
     }
 
     // Check if all seen brackets are immediately followed by a
@@ -44660,7 +44663,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
         //   turned into an AND statement instead.
         let directlySubsequentWhere = 
-          mistake.mistakeWord[1][2] + 1 === secondWhereStart ? true : false;
+          mistake.mistakeWord[1][2] + 1 === secondWhereStart;
 
         if (aggrFuncFound || groupByBefore2ndWhere) {
           if (keywordsInLevel.includes('having')) {
@@ -44985,13 +44988,29 @@ function attemptOrderingFix(query) {
 
 function findNamedSubquery(ast, subqueryLocationTrace) {
   // TODO: Optimize this implementation
-  throw Error('Need to implement this first :)');
+
+  // The first part of the trace should always be a keyword, so with a
+  //   correct AST and trace the first step is easy.
+  let astSearchResult = ast[subqueryLocationTrace[0]];
+
+  for (let i = 1; i < subqueryLocationTrace.length; i++) {
+    let traceItem = subqueryLocationTrace[i];
+    if (typeof traceItem === 'number') {
+      // Find the traceItem'th subquery within this keyword, searching within
+      //     the keyword according to:
+      // - Increasing order of items (e.g. SELECT column order)
+      // - Left-to-right order of items (e.g. first to last item in WHERE)
+    } else {
+      // Either we need to dive deeper into the AST, 
+    }
+  }
 
 }
 
 
 function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
   for (let levelName in foundIssues) {
+    // TODO: this breaks. I know. Work in progress.
     let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
   }
   throw Error('OwO notices your parsing errors');
@@ -45012,12 +45031,10 @@ function parseQuery(query) {
     // console.log('Query contained errors that make it unparseable. Attempting repairs.');
     var orderingFixResults = attemptOrderingFix(query);
     
-    var fixedQuery = orderingFixResults.reorganizedQuery;
-    var foundIssues = orderingFixResults.foundIssues;
-    
-    returnValues.ast = parse_sql(fixedQuery);
-    returnValues.fixedQuery = fixedQuery;
-    returnValues.foundIssues = foundIssues;
+    returnValues.ast = parse_sql(orderingFixResults.reorganizedQuery);
+    returnValues.improperGroupByLocations = orderingFixResults.improperGroupByData;
+    returnValues.fixedQuery = orderingFixResults.reorganizedQuery;
+    returnValues.foundIssues = orderingFixResults.foundIssues;
   }
 
   return returnValues;
@@ -45032,10 +45049,11 @@ function visualize(query, schema, container, d3) {
   // Strip ; from the query as this will cause errors in the AST generation.
   var stripped_query = query.replace(/;/, '');
 
+  let parseResults;
+
   try {
-    let parseResults = parseQuery(stripped_query);
+    parseResults = parseQuery(stripped_query);
     var ast = parseResults.ast;
-    // TODO: reminder that foundIssues and fixedQuery exist
   }
   catch (e) {
     container.text(e);
@@ -45055,7 +45073,7 @@ function visualize(query, schema, container, d3) {
 
   // If they exist, incorporate errors found & fixed during parsing
   if (typeof parseResults.foundIssues !== 'undefined') {
-    incorporateParsingErrors(ast, parseResults.foundIssues);
+    incorporateParsingErrors(ast, parseResults.foundIssues, parseResults.levelTreeStructure);
   }
 
   // Analyze referencing/scoping
@@ -47162,6 +47180,7 @@ define(function() {
 
 // COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
 //   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
+
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
