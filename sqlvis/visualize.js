@@ -44098,7 +44098,6 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
   //   check if any of the keywords before it either incorrectly appeared
   //   before that keyword, or if the same keyword appeared before already.
   for (let levelName in keywordsPerLevel) {
-    // console.log(levelName);
     let keywordList = keywordsPerLevel[levelName].keywordArray;
     // seenKeywordData structure:
     // seenKeywordData.keywordsExpectedIndex = [keyword, indexInQuery]
@@ -44106,14 +44105,6 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
     for (let i in keywordList) {
       let keyword = keywordList[i][0];
       let keywordIndex = expectedOrder.indexOf(keyword);
-      
-      // console.log('Log time.' + '\n'
-      //             + 'levelName: ' + levelName + '\n'
-      //             + 'keywordList: ' + keywordList + '\n'
-      //             + 'i: ' + i + '\n'
-      //             + 'keywordList[i]: ' + keywordList[i] + '\n'
-      //             + 'keyword: ' + keyword + '\n'
-      //             + 'keywordIndex: ' + keywordIndex);
       
       if (keywordIndex === -1) {
         // This should be impossible in normal use of the function.
@@ -44156,10 +44147,6 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
 
       // Track the keyword that was just seen and processed.
       seenKeywordData[keywordIndex] = keywordList[i];
-      // console.log(seenKeywordData);
-      // console.log('Log part 2.' + '\n'
-      //             + 'seenKeywordData above.' + '\n'
-      //             + 'seenKeywordData[keywordIndex]: ' + seenKeywordData[keywordIndex] + '\n');
     }
 
     // console.log(foundIssues);
@@ -44204,20 +44191,6 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
     // console.log
     //   mistakeWord - keyword expected index: 6 | keyword array: group by,0
     //   detectedAtKeyword - keyword expected index: 5 | keyword array: where,80
-
-
-
-
-    // TODO: If there are errors tracked, find what is wrong exactly instead
-    //       of reporting every out of order bit.
-    
-
-    // Thought: instead of the currently suggested error reporting, report
-    //          using a list of objects that each have:
-    //   - 'move' attr -> the thing that should be changed
-    //   - 'after' attr (opt) -> the thing it should be put directly behind
-    //          (we'll figure out the logistics of how exactly later)
-    //   - 'rename' attr (opt) -> what to rename the keyword itself to
   }
 
   return foundIssues;
@@ -44228,9 +44201,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
   // Track using a copy, so that mistakeList[arrayIndex] itself
   //   can safely be modified or even deleted.
   const currentMainMistake = [...mistakeList][arrayIndex];
-  // console.log('Called from index ' + arrayIndex + '\n'
-  //             + 'Now looking at mistakeList: ' + mistakeList);
-  // console.log(currentMainMistake);
   const mainMistakeWordIndex = currentMainMistake.mistakeWord[0];
   const mainDetectedAtIndex = currentMainMistake.detectedAtKeyword[0];
   // The locations uniquely identify a keyword in a query.
@@ -44395,13 +44365,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     //   and check the biggest item again to ensure it has no other connections
     //   with other mistakes that should also be taken into account.
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
-
-    // Note: next step (outside this function) is to use that mistake as an
-    //   order to 'move detectedAtKeyword to appear before the stated
-    //   mistakeWord'. This instruction can be recognised by the index
-    //   of mistakeWord being < the index of detectedAtKeyword.
-    // (this will be the easier one to move, thanks to splice and knowing
-    //  where to insert).
   }
   else {
     // I don't think this is possible, but if it occurs give an errors message
@@ -44410,15 +44373,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
                 + 'mistakeWord and detectedAtWord appear in other mistakes too. '
                 + 'I do not know what to do with this.');
   }
-
-  // This function ending allows for iterating over the array while also
-  //   modifying it. (using a for loop on the array and modifying it in the
-  //   for loop does not result in the intended behavior)
-  // TODO: I thought this was needed, but coverage report suggests it is never
-  //   called. Removing it also doesn't break anything. I'm... not sure.
-  // if (arrayIndex + 1 < mistakeList.length) {
-  //   return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
-  // }
 }
 
 
@@ -44474,10 +44428,6 @@ function removeTextBetweenBrackets(stringToChange) {
     openingBrackets = allIndicesOf(stringToChange, '(');
     closingBrackets = allIndicesOf(stringToChange, ')');
     let bracketsInstantClosed = [];
-
-    // console.log('Bracket arrays:\n'
-    //             + 'Opening: ' + openingBrackets + '\n'
-    //             + 'Closing: ' + closingBrackets);
     
     // For every opening bracket, check if it is immediately followed by a
     //   closing bracket.
@@ -44595,11 +44545,6 @@ function fixSingleWrongWhere(keywordsPerLevel, query) {
         levelKeywords[whereIndices[0]][2]++;
         cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
                                       whereIndices[0] + 1, 1);
-
-        // console.log('I broke something.\n'
-        //             + 'Query pre change : ' + query + '\n'
-        //             + 'Query post change: ' + returnObject.changedQuery + '\n'
-        //             + 'whereInfo: [' + whereInfo[0] + ', ' + whereInfo[1] + ', ' + whereInfo[2] + ']');
       }
     }
   }
@@ -44853,6 +44798,26 @@ function forcedReordering(query, keywordsPerLevel) {
 }
 
 
+function findGroupByErrorLevels(keywordsPerLevel, improperGroupByData) {
+  // Concept: take the mistake's start location from mistakeWord[1][1] and
+  //   see what the highest level is it can be placed in, through reverse
+  //   sort levels & save first hit.
+  // TODO: Implement this.
+
+  // Return structure must be like foundIssues:
+  // console.log(foundIssues);
+  //   If level present, level has issues.
+  //   level_0_0: [
+  //       { mistakeWord: [expected index, keyword array],
+  //         detectedAtKeyword: [expected index, keyword array] },
+  //       { mistakeWord: ..., detectedAtKeyword: ... },
+  //       ...
+  //   ]
+
+  throw Error('Not implemented yet.');
+}
+
+
 function combineLevelIssues(combineInto, combineFrom) {
   for (let levelName in combineFrom) {
     if (typeof combineInto[levelName] !== 'undefined') {
@@ -44931,8 +44896,6 @@ function attemptOrderingFix(query) {
   returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
   query = returnObject.query;
   let singleWhereIssues = returnObject.foundIssues;
-  // console.log('Status now post fixSingleWrongWhere:\n'
-  //             + query);
 
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // console.log(foundIssues);
@@ -44948,34 +44911,26 @@ function attemptOrderingFix(query) {
   // All levels mentioned in foundIssues have issues, levels not mentioned
   //   are okay as is. Clean up the collection so that it only contains
   //   the real mistakes, and not also every smaller version of them.
-  // console.log('keywordsPerLevel: \n'
-  //             + keywordsPerLevel);
   for (let levelName in foundIssues) {
     let levelMistakes = foundIssues[levelName];
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
-    // console.log('levelKeywords for level ' + levelName + '\n'
-    //             + levelKeywords);
 
     onlyKeepBiggestMistakes(levelMistakes);
   }
 
   query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
-  // console.log('Status now post doubleWhereDetection:\n'
-  //             + query);
-
-  // for (let levelName in keywordsPerLevel) {
-  //   let levelKeywords = keywordsPerLevel[levelName].keywordArray;
-  //   console.log('levelKeywords for level ' + levelName + '\n'
-  //               + levelKeywords);
-  // }
 
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
-  // console.log('Status now post forcedReordering:\n'
-  //             + reorganizedQuery);
 
   // Combine the found issues into one larger object.
   combineLevelIssues(foundIssues, singleWhereIssues);
+
+  // When improperGroupByData was originally made, there was no concept of
+  //   levels yet. Now it is possible to find in which level each mistake was,
+  //   so put them in the right levels so that they can be put into the AST.
+  groupByErrorsWithLevels = findGroupByErrorLevels(keywordsPerLevel, improperGroupByData);
+  combineLevelIssues(foundIssues, groupByErrorsWithLevels);
 
   // improperGroupByData has no concept of levels, so it is (currently)
   //   easier to return and handle in that own format.
@@ -44987,10 +44942,12 @@ function attemptOrderingFix(query) {
 
 
 function findNamedSubquery(ast, subqueryLocationTrace) {
-  // TODO: Optimize this implementation
+  // TODO: Actually implement this.
+  // TODO: Optimize this implementation.
 
   // The first part of the trace should always be a keyword, so with a
   //   correct AST and trace the first step is easy.
+  // TODO: this might be oversimplified. It probably is.
   let astSearchResult = ast[subqueryLocationTrace[0]];
 
   for (let i = 1; i < subqueryLocationTrace.length; i++) {
@@ -45004,16 +44961,50 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
       // Either we need to dive deeper into the AST, 
     }
   }
-
+  throw Error('Not implemented yet.');
 }
 
 
 function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
+  /* 
+  The concepts for handling each kind of error appearing in foundIssues:
+
+  With handledBy present:
+  'WHERE->HAVING'
+  -> Leave a mistake marker on the root of the last left-right combo
+     on the HAVING clause -> this is either the only L-R combo,
+     or the last one meaning the part that was moved there
+
+  'WHERE->AND'
+  -> Leave a mistake marker on the root of the last left-right combo
+     of the WHERE clause -> on the entire thing that was moved
+
+  'GROUP BY ->GROUP_BY_'
+  -> Go to the root of the indicated level and walk through every
+     single attribute until the first thing containing the prefix 'GROUP_BY_'
+     that does not have a mistake tag is found. Tag it.
+
+  Without handledBy: (these always have deep inequality mistakeWord !== detectedAtKeyword)
+  - If mistakeWord[0] === detectedAtKeyword[0], this was a duplicate word.
+    Go to detectedAtKeyword in the AST and give it a mistake tag,
+      marking it as a duplicate keyword.
+
+  - If detectedAtKeyword[0] < mistakeWord[0], detectedAtKeyword appeared too late.
+    Go to detectedAtKeyword in the AST and give it a mistake tag,
+      marking it as appearing later than it should
+      (also mention what it should be in front of).
+
+  - If detectedAtKeyword[0] > mistakeWord[0], mistakeWord appeared too late.
+    Go to mistakeWord in the AST and give it a mistake tag,
+      marking it as appearing later than it should
+      (also mention what it should be in front of).
+  */
+
   for (let levelName in foundIssues) {
-    // TODO: this breaks. I know. Work in progress.
     let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
+    // TODO: everything really. Block comment above proposes approach.
   }
-  throw Error('OwO notices your parsing errors');
+  throw Error('Not implemented yet.');
 }
 
 
@@ -45033,8 +45024,8 @@ function parseQuery(query) {
     
     returnValues.ast = parse_sql(orderingFixResults.reorganizedQuery);
     returnValues.improperGroupByLocations = orderingFixResults.improperGroupByData;
-    returnValues.fixedQuery = orderingFixResults.reorganizedQuery;
     returnValues.foundIssues = orderingFixResults.foundIssues;
+    returnValues.levelTreeStructure = orderingFixResults.levelTreeStructure;
   }
 
   return returnValues;
@@ -45073,7 +45064,8 @@ function visualize(query, schema, container, d3) {
 
   // If they exist, incorporate errors found & fixed during parsing
   if (typeof parseResults.foundIssues !== 'undefined') {
-    incorporateParsingErrors(ast, parseResults.foundIssues, parseResults.levelTreeStructure);
+    incorporateParsingErrors(ast, parseResults.foundIssues,
+                             parseResults.levelTreeStructure);
   }
 
   // Analyze referencing/scoping
@@ -47130,12 +47122,6 @@ define(function() {
     return addKeywordEndings(keywordStatus, totalQueryLength);
   }
 
-  // Needs be tested using findKeywordOrderAtEachLevel,
-  //   test with specific query set
-  // e.buildDepthString = function(currentDepth, previousDepths) {
-  //   return buildDepthString(currentDepth, previousDepths);
-  // }
-
   // Test with standard query test set
   e.findKeywordOrderAtEachLevel = function(keywordsPlusBrackets) {
     return findKeywordOrderAtEachLevel(keywordsPlusBrackets);
@@ -47151,23 +47137,8 @@ define(function() {
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
   }
 
-  // Few smaller tests
-  // e.retrieveKeywordIfPresent = function(keywordArray, keywordToFind) {
-  //   return retrieveKeywordIfPresent(keywordArray, keywordToFind);
-  // }
-
-  // Test with standard query test set
-  // e.forcedReordering = function(query, keywordsPerLevel) {
-  //   return forcedReordering(query, keywordsPerLevel);
-  // }
-
-  // Test with standard query test set
-  // e.attemptOrderingFix = function(query) {
-  //   return attemptOrderingFix(query);
-  // }
-
-  e.incorporateParsingErrors = function(ast, foundIssues) {
-    return incorporateParsingErrors(ast, foundIssues);
+  e.incorporateParsingErrors = function(ast, foundIssues, levelTreeStructure) {
+    return incorporateParsingErrors(ast, foundIssues, levelTreeStructure);
   }
 
   // Test with standard query test set

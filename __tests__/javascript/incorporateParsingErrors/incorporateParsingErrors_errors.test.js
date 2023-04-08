@@ -26,7 +26,8 @@ WHERE c.cID = SUM(p.cID)
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
@@ -49,7 +50,8 @@ WHERE c.cID = SUM(p.cID)
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
@@ -72,7 +74,8 @@ WHERE c.cID = SUM(p.cID)
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
@@ -113,7 +116,8 @@ WHERE c.cName LIKE '%a%';
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
@@ -139,7 +143,8 @@ GROUP BY c.cName;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
@@ -165,7 +170,8 @@ GROUP BY c.cName;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
@@ -225,7 +231,8 @@ FROM customer, purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
@@ -247,7 +254,8 @@ FROM customer, purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
@@ -269,7 +277,8 @@ FROM purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
@@ -291,7 +300,8 @@ AND COUNT(GROUP BY p.pID) < 5;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.right.left.args.expr.mistakes[0]).toContainEqual(
@@ -369,7 +379,8 @@ FROM customer AS c, purchase AS p
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
@@ -394,7 +405,8 @@ GROUP BY c.cName;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.mistakes[0]).toContainEqual('second WHERE');
@@ -416,7 +428,8 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
@@ -441,7 +454,8 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
@@ -467,7 +481,8 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
@@ -496,7 +511,8 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
@@ -524,7 +540,8 @@ ORDER BY c.cName ASC;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
-  visCode.incorporateParsingErrors(ast, parseResults.foundIssues);
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
