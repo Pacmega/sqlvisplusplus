@@ -11,6 +11,15 @@ expected_results/expected_asts_groupby_error_queries.json.
 
 const visCode = require('../../../sqlvis/visualize');
 
+// Effectively setup for all tests
+const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
+                        'where', 'group by', 'having', 'order by'];
+const subqueryMarkers = ['(', ')'];
+
+let itemsToFind = Array.from(keywordsToFind);
+itemsToFind.push(...subqueryMarkers);
+
+
 test('GROUP BY before SELECT, WHERE with aggregation', () => {
   // Expected: Move the GROUP BY, where -> having
   query = `
@@ -50,6 +59,17 @@ WHERE c.cID = SUM(p.cID)
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 80, 105]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 80, 105]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+  
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -73,7 +93,18 @@ WHERE c.cID = SUM(p.cID)
   let ast = parseResults.ast;
 
   // First check there were errors found as expected, then incorporate them.
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
   expect(parseResults.foundIssues).toBeDefined();
+  
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 80, 105]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 80, 105]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -94,8 +125,8 @@ WHERE c.cID = SUM(p.cID)
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  // This query is parsed normally, even though the WHERE incorrectly contains
-  //   aggregation. That is not yet found and incorporated here.
+  // This query is parsed successfully, meaning the WHERE incorrectly contains
+  //   aggregation but is not detected yet.
   expect(parseResults.foundIssues).not.toBeDefined();
 });
 
@@ -116,6 +147,17 @@ WHERE c.cName LIKE '%a%';
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let doubleWhereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                       ['where', 63, 82]],
+                          detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                             ['where', 100, 124]],
+                          handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(doubleWhereError);
+  
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -231,6 +273,17 @@ FROM customer, purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                   ['group by', 7]],
+                      detectedAtKeyword: [itemsToFind.indexOf('group by'),
+                                         ['group by', 7]],
+                      handledBy: 'GROUP BY ->GROUP_BY_'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -254,6 +307,17 @@ FROM customer, purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                   ['group by', 7]],
+                      detectedAtKeyword: [itemsToFind.indexOf('group by'),
+                                         ['group by', 7]],
+                      handledBy: 'GROUP BY ->GROUP_BY_'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -277,6 +341,17 @@ FROM purchase
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                   ['group by', 7]],
+                      detectedAtKeyword: [itemsToFind.indexOf('group by'),
+                                         ['group by', 7]],
+                      handledBy: 'GROUP BY ->GROUP_BY_'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -302,6 +377,16 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(parseResults.foundIssues).toBeDefined();
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                   ['group by', 88]],
+                      detectedAtKeyword: [itemsToFind.indexOf('group by'),
+                                         ['group by', 88]],
+                      handledBy: 'GROUP BY ->GROUP_BY_'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
 
   // Check if all errors were incorporated as expected.
   expect(ast.having.right.left.args.expr.mistakes[0]).toContainEqual(
@@ -379,6 +464,22 @@ FROM customer AS c, purchase AS p
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
+                                   ['group by', 54, 68]],
+                      detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                         ['where', 69, 88]]};
+
+  let fromError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                ['where', 69, 88]],
+                   detectedAtKeyword: [itemsToFind.indexOf('from'),
+                                      ['from', 89, 122]]};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(fromError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -405,12 +506,24 @@ GROUP BY c.cName;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 63, 203]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 204, 223]],
+                    handledBy: 'WHERE->AND'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.mistakes[0]).toContainEqual('second WHERE');
 });
+
 
 test('Directly subsequent WHERE, includes aggregation, no GROUP BY', () => {
   // This query doesn't really make sense without GROUP BY, but anyway.
@@ -428,6 +541,17 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 63, 82]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 83, 107]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -454,6 +578,17 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 63, 82]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 100, 124]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -481,6 +616,17 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 63, 82]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 83, 107]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -511,6 +657,17 @@ ORDER BY c.cName ASC;
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 63, 82]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 124, 148]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
@@ -540,12 +697,23 @@ ORDER BY c.cName ASC;`
 
   // First check there were errors found as expected, then incorporate them.
   expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let whereError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                 ['where', 177, 216]],
+                    detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                       ['where', 217, 256]],
+                    handledBy: 'WHERE->HAVING'};
+
+  expect(parseResults.foundIssues.level_1_0).toContainEqual(whereError);
+
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
   // Check if all errors were incorporated as expected.
   expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
     'second WHERE');
-  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
+  expect(ast.where.left.right.value[0].having.mistakes[1]).toContainEqual(
     'WHERE with aggregation');
 });

@@ -500,11 +500,6 @@ FROM customer, purchase
   // Notice the recognition as a function, not as an aggr_func.
   // This will be relevant later, in analysis.
   expect(ast.columns[0].expr.column).toBe('GROUP_BY_cName');
-  // expect(ast.columns[0].expr.name).toBe('GROUPBY');
-  // expect(ast.columns[0].expr.type).toBe('function');
-  // expect(ast.columns[0].expr.args.type).toBe('expr_list');
-  // expect(ast.columns[0].expr.args.value[0].table).toBeNull();
-  // expect(ast.columns[0].expr.args.value[0].column).toBe('cName');
   expect(ast.columns[1].expr.type).toBe('aggr_func');
   expect(ast.columns[1].expr.name).toBe('SUM');
   expect(ast.columns[1].expr.args.expr.column).toBe('price');

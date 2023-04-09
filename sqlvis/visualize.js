@@ -43865,8 +43865,8 @@ function handleImproperGroupByPlacement(query, keywordStatus) {
         // The next item is/was a GROUP BY, which now is instead transformed to
         //   not be a keyword anymore. Mark for deletion.
         indicesToDrop.push(keywordIndex+1);
-        let issue = {mistakeWord: [expectedGroupByIndex, keywordStatus[keywordIndex+1]],
-                     detectedAtKeyword: [expectedGroupByIndex, keywordStatus[keywordIndex+1]],
+        let issue = {mistakeWord: [expectedGroupByIndex, [...keywordStatus[keywordIndex+1]]],
+                     detectedAtKeyword: [expectedGroupByIndex, [...keywordStatus[keywordIndex+1]]],
                      handledBy: 'GROUP BY ->GROUP_BY_'};
         improperGroupByData.push(issue);
       }
@@ -44125,8 +44125,8 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
             foundIssues[levelName] = [];
           }
 
-          let issue = {mistakeWord: [seenKeywordIndexInt, seenKeywordData[seenKeywordIndexInt]],
-                       detectedAtKeyword: [keywordIndex, keywordList[i]]};
+          let issue = {mistakeWord: [seenKeywordIndexInt, [...seenKeywordData[seenKeywordIndexInt]]],
+                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]]};
           foundIssues[levelName].push(issue);
         } else if (keywordIndex === seenKeywordIndexInt) {
           // Another copy of keyword found.
@@ -44138,8 +44138,8 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
             foundIssues[levelName] = [];
           }
 
-          let issue = {mistakeWord: [seenKeywordIndexInt, seenKeywordData[seenKeywordIndexInt]],
-                       detectedAtKeyword: [keywordIndex, keywordList[i]]};
+          let issue = {mistakeWord: [seenKeywordIndexInt, [...seenKeywordData[seenKeywordIndexInt]]],
+                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]]};
           foundIssues[levelName].push(issue);
         }
         // else: everything is fine, no issue to track
@@ -44529,22 +44529,26 @@ function fixSingleWrongWhere(keywordsPerLevel, query) {
         let replacementString = 'HAVING';
         query = stringSplice(query, whereStart, whereLength, replacementString);
 
-        // Also create an error in the foundIssues structure, with an appended
-        //   note saying how it was fixed. Use the same word's data twice to
-        //   signify "This keyword was an issue purely by itself".
+        // Also create an error in the foundIssues structure indicating "This 
+        //   keyword was an issue purely by itself", with a handledBy note.
         if (typeof foundIssues[levelName] === 'undefined') {
           foundIssues[levelName] = [];
         }
 
-        let issue = {mistakeWord: [expectedWhereIndex, levelKeywords[whereIndices[0]]],
-                     detectedAtKeyword: [expectedWhereIndex, levelKeywords[whereIndices[0]]],
-                     handledBy: 'WHERE->HAVING'};
-        foundIssues[levelName].push(issue);
-
-        levelKeywords[whereIndices[0]][0] = 'having';
+        // Specific order here: first update the indices, then store the issue
+        //   with the original keyword name, then update the actual keyword,
+        //   so that the issue shows WHERE as the mistakeWord but has working
+        //   indices for the fixed version.
         levelKeywords[whereIndices[0]][2]++;
         cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
                                       whereIndices[0] + 1, 1);
+
+        let issue = {mistakeWord: [expectedWhereIndex, [...levelKeywords[whereIndices[0]]]],
+                     detectedAtKeyword: [expectedWhereIndex, [...levelKeywords[whereIndices[0]]]],
+                     handledBy: 'WHERE->HAVING'};
+        foundIssues[levelName].push(issue);
+
+        levelKeywords[whereIndices[0]][0] = 'having';        
       }
     }
   }
@@ -44814,7 +44818,45 @@ function findGroupByErrorLevels(keywordsPerLevel, improperGroupByData) {
   //       ...
   //   ]
 
-  throw Error('Not implemented yet.');
+  // By sorting in reverse, the deepest levels appear first. That way, the
+  //   most precise level is found first.
+  let queryLevels = Object.keys(keywordsPerLevel);
+  queryLevels.sort().reverse();
+
+  let groupByErrorsWithLevels = {};
+  let groupByErrorsCovered = [];
+
+  for (let errorIndex in improperGroupByData) {
+    let errorData = improperGroupByData[errorIndex];
+    let groupErrorLocation = errorData.mistakeWord[1][1];
+
+    for (let levelIndex in queryLevels) {
+      // console.log(keywordsPerLevel);
+      // console.log(keywordsPerLevel[levelName]);
+      const levelName = queryLevels[levelIndex];
+      const nrKeywordsInLevel = keywordsPerLevel[levelName].keywordArray.length
+      const levelStart = keywordsPerLevel[levelName].keywordArray[0][1];
+      const levelEnd = keywordsPerLevel[levelName].keywordArray[nrKeywordsInLevel-1][2];
+      if (levelStart < groupErrorLocation && groupErrorLocation < levelEnd) {
+        // The GROUP BY error is within this level, and because of the sorting
+        //   we know this is the most precise level there is. Store & move on.
+        if (typeof groupByErrorsWithLevels[levelName] === 'undefined') {
+          groupByErrorsWithLevels[levelName] = [];
+        }
+        groupByErrorsWithLevels[levelName].push(errorData);
+        groupByErrorsCovered.push(errorData);
+        continue;
+      }
+    }
+  }
+
+  let uncoveredErrors = improperGroupByData.filter(x => !groupByErrorsCovered.includes(x));
+  if (uncoveredErrors.length !== 0) {
+    throw Error('Some GROUP BY errors were found for which no query level can be determined!\n'
+                + 'Unable to find levels for GROUP BY errors: ' + uncoveredErrors);
+  }
+
+  return groupByErrorsWithLevels;
 }
 
 
@@ -44929,13 +44971,13 @@ function attemptOrderingFix(query) {
   // When improperGroupByData was originally made, there was no concept of
   //   levels yet. Now it is possible to find in which level each mistake was,
   //   so put them in the right levels so that they can be put into the AST.
-  groupByErrorsWithLevels = findGroupByErrorLevels(keywordsPerLevel, improperGroupByData);
+  let groupByErrorsWithLevels = findGroupByErrorLevels(keywordsPerLevel,
+                                                       improperGroupByData);
   combineLevelIssues(foundIssues, groupByErrorsWithLevels);
 
   // improperGroupByData has no concept of levels, so it is (currently)
   //   easier to return and handle in that own format.
   return {'reorganizedQuery': reorganizedQuery,
-          'improperGroupByLocations': improperGroupByData,
           'foundIssues': foundIssues,
           'levelTreeStructure': levelTreeStructure};
 }
@@ -45023,7 +45065,6 @@ function parseQuery(query) {
     var orderingFixResults = attemptOrderingFix(query);
     
     returnValues.ast = parse_sql(orderingFixResults.reorganizedQuery);
-    returnValues.improperGroupByLocations = orderingFixResults.improperGroupByData;
     returnValues.foundIssues = orderingFixResults.foundIssues;
     returnValues.levelTreeStructure = orderingFixResults.levelTreeStructure;
   }
