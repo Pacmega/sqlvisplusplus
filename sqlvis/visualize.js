@@ -44080,8 +44080,17 @@ function findKeywordOrderAtEachLevel(keywordsPlusBrackets) {
     } else {
       keywordsPerLevel[depthString].keywordArray.push(keywordsPlusBrackets[nr_i]);
       lastNonBracketKeyword = keywordsPlusBrackets[nr_i][0];
-      // New keyword, so clear any potential tracked subquery numbers on this depth.
-      subqueryNumberInKeyword[currentDepth] = 0;
+      
+      // This last keyword could be an (erroneous) repeat of the last one, in
+      //   which case the subquery counter for this depth shouldn't be reset.
+      // console.log(keywordsPerLevel[depthString].keywordArray);
+      // console.log(keyword + ' === ' + previousKeyword + '?');
+      if (keywordsPerLevel[depthString].keywordArray.length > 1) {
+        let previousKeyword = keywordsPerLevel[depthString].keywordArray.slice(-2, -1)[0][0];
+        if (keyword !== previousKeyword) {
+          subqueryNumberInKeyword[currentDepth] = 0;
+        }
+      }
     }
   }
 
@@ -45010,13 +45019,13 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
   // These elements won't always all exist on a keyword, but if they exist
   //   they can/should be visited.
   const visitableObjects = ['left', 'right', 'args', 'expr'];
-  const visitableLists = ['columns', 'value'];
+  const visitableLists = ['columns', 'from', 'value'];
   const visitableElements = [...visitableObjects];
   visitableElements.push(...visitableLists);
 
   // Forcibly clone, because we cannot change ast here.
   let astSearchResult = JSON.parse(JSON.stringify(ast));
-  
+
   if (astSearchResult.type === 'select') {
     // This is a subquery root!
     foundNumber++;
@@ -45027,37 +45036,57 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
             'foundNumber': foundNumber};
   } else {
     // Not a subquery root (yet). Keep going.
-    for (let element in astSearchResult) {
-      if (visitableObjects.includes(element)) {
-        // console.log('Visitable object located, visiting: ' + element);
-        let visitableItem = astSearchResult[element];
+    if (Array.isArray(astSearchResult)) {
+      // If e.g. FROM was selected, this "AST" is an array. Iterate over it.
+      for (let visitableItemIndex in astSearchResult) {
+        let visitableItem = astSearchResult[visitableItemIndex];
         let visitedObject = ASTSubqueryDFS(visitableItem, targetNumber, foundNumber);
         if (visitedObject.foundNumber > foundNumber) {
-          // console.log('Visited object was a subquery root.');
+          // console.log('Visited object in list was a subquery root.');
           // A new subquery root was found.
           foundNumber++;
           if (foundNumber === targetNumber) {
+            // console.log('Most recent visited object from the list was '
+            //             + 'the target. Return.');
             // This subquery was the target, return it.
-            // console.log('Most recent visited object was the target. Return.');
             return {'foundSubqueryRoot': visitedObject.foundSubqueryRoot,
                     'foundNumber': foundNumber};
           }
         }
-      } else if (visitableLists.includes(element)) {
-        // console.log('List containing visitable items located with name: ' + element);
-        for (let visitableItemIndex in astSearchResult[element]) {
-          let visitableItem = astSearchResult[element][visitableItemIndex];
+      }
+    } else {
+      for (let element in astSearchResult) {
+        if (visitableObjects.includes(element)) {
+          // console.log('Visitable object located, visiting: ' + element);
+          let visitableItem = astSearchResult[element];
           let visitedObject = ASTSubqueryDFS(visitableItem, targetNumber, foundNumber);
           if (visitedObject.foundNumber > foundNumber) {
-            // console.log('Visited object in list was a subquery root.');
+            // console.log('Visited object was a subquery root.');
             // A new subquery root was found.
             foundNumber++;
             if (foundNumber === targetNumber) {
-              // console.log('Most recent visited object from the list was '
-              //             + 'the target. Return.');
               // This subquery was the target, return it.
+              // console.log('Most recent visited object was the target. Return.');
               return {'foundSubqueryRoot': visitedObject.foundSubqueryRoot,
                       'foundNumber': foundNumber};
+            }
+          }
+        } else if (visitableLists.includes(element)) {
+          // console.log('List containing visitable items located with name: ' + element);
+          for (let visitableItemIndex in astSearchResult[element]) {
+            let visitableItem = astSearchResult[element][visitableItemIndex];
+            let visitedObject = ASTSubqueryDFS(visitableItem, targetNumber, foundNumber);
+            if (visitedObject.foundNumber > foundNumber) {
+              // console.log('Visited object in list was a subquery root.');
+              // A new subquery root was found.
+              foundNumber++;
+              if (foundNumber === targetNumber) {
+                // console.log('Most recent visited object from the list was '
+                //             + 'the target. Return.');
+                // This subquery was the target, return it.
+                return {'foundSubqueryRoot': visitedObject.foundSubqueryRoot,
+                        'foundNumber': foundNumber};
+              }
             }
           }
         }
@@ -45086,7 +45115,8 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
     let traceItem = subqueryLocationTrace[i];
     // console.log('Now going into location trace item ' + i + ': '
     //             + traceItem);
-    if (astSearchResult.type !== 'select') {
+    if (typeof astSearchResult.foundSubqueryRoot !== 'undefined'
+        && astSearchResult.foundSubqueryRoot.type !== 'select') {
       throw Error('Subquery root selected after trace step ' + i-1
                   + 'was not actually a subquery root. Stopping.\n'
                   + 'Full AST for this function call:\n'
@@ -45096,24 +45126,28 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
     }
 
     if (typeof traceItem === 'number') {
-      // Find the traceItem'th subquery within this keyword, searching within
-      //     the keyword according to:
-      // - Increasing order of items (e.g. SELECT column order)
-      // - Left-to-right order of items (e.g. first to last item in WHERE)
-      // console.log('Attempting to find subquery number ' + traceItem
-      //             + ' within AST component.');
-      astSearchResult = ASTSubqueryDFS(astSearchResult, traceItem);
-      // console.log('AST component found via ASTSubqueryDFS:\n'
-      //             + util.inspect(astSearchResult, false, 3, true));
+      // This number was already used in the previous for loop iteration.
+      continue;
     } else {
       // Either we need to dive deeper into the AST, or... something.
       // console.log('Attempting to find subquery for trace keyword ' + traceItem
       //             + ' within AST component.');
-      astSearchResult = ast[keywordToASTName(traceItem)];
-      // now this is the keyword itself, but not a subquery root.
-      // Within this keyword, explore all direct attributes via DFS
-      //   to find the first subquery in the keyword.
-      astSearchResult = ASTSubqueryDFS(astSearchResult);
+      astSearchResult = astSearchResult[keywordToASTName(traceItem)];
+      
+      if (typeof subqueryLocationTrace[Number(i)+1] === 'number') {
+        // There is an indicator showing there are multiple subqueries within
+        //   this keyword and we do not want the first one. Find the right one,
+        //   searching within the keyword according to:
+        // - Increasing order of items (e.g. SELECT column order)
+        // - Left-to-right order of items (e.g. first to last item in WHERE)
+        let findSubqueryNumber = subqueryLocationTrace[Number(i)+1];
+        astSearchResult = ASTSubqueryDFS(astSearchResult, findSubqueryNumber);
+      } else {
+        // Within this keyword, explore all direct attributes via DFS
+        //   to find the first subquery in the keyword.
+        astSearchResult = ASTSubqueryDFS(astSearchResult);
+      }
+      astSearchResult = astSearchResult.foundSubqueryRoot;
       // console.log('AST component found via ASTSubqueryDFS:\n'
       //             + util.inspect(astSearchResult, false, 3, true));
     }
@@ -45164,9 +45198,9 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
 
   for (let levelName in foundIssues) {
     let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
-    console.log('Subquery found for level ' + levelName + ' based on trace ['
-                + levelTreeStructure[levelName] + '] is:'
-                + util.inspect(subqueryRoot, false, 5, true));
+    // console.log('Subquery found for level ' + levelName + ' based on trace ['
+    //             + levelTreeStructure[levelName] + '] is:'
+    //             + util.inspect(subqueryRoot, false, 5, true));
     // TODO: everything really. Block comment above proposes approach.
   }
   throw Error('Not implemented yet.');

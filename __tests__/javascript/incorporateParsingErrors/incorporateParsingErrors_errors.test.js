@@ -717,3 +717,85 @@ ORDER BY c.cName ASC;`
   expect(ast.where.left.right.value[0].having.mistakes[1]).toContainEqual(
     'WHERE with aggregation');
 });
+
+
+test('Finding and marking errors at many levels at once', () => {
+  // Depths in depths, mainly for checking different depth functionalities.
+  query = `
+SELECT a.this
+FROM (SELECT this, that
+      FROM there
+      WHERE this > 7
+     ) as a,
+     (SELECT alsothis, alsothat
+      FROM otherplace
+      WHERE alsothis < 8
+      AND alsothat IN (SELECT alsothat
+                       WHERE alsothat > 4
+                       FROM otherplace)
+     ) as b
+WHERE b.alsothat in (SELECT alsothat
+                     FROM otherplace
+                     WHERE NOT EXISTS (FROM there
+                                       WHERE that LIKE '%a%'
+                                       SELECT that
+                                      )
+                     WHERE EXISTS (FROM otherplace
+                                   SELECT alsothat
+                                   WHERE alsothat LIKE '%b%') 
+                    );
+`
+
+  // console.log('==========================================================\n'
+  //             + '==========================================================\n'
+  //             + '\n'
+  //             + '                THINGS ARE BREAKING HERE                    \n'
+  //             + '\n'
+  //             + '==========================================================\n'
+  //             + '==========================================================\n');
+  
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check there were errors found as expected, then incorporate them.
+  expect(parseResults.foundIssues).toBeDefined();
+
+  // The normal foundIssues were already tested, now also test for the ones
+  //   that should have been merged in at the end of parseQuery.
+  let twoZeroError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                   ['where', 230, 271]],
+                      detectedAtKeyword: [itemsToFind.indexOf('from'),
+                                         ['from', 272, 286]]};
+
+  let oneTwoError = {mistakeWord: [itemsToFind.indexOf('where'),
+                                   ['where', 396, 597]],
+                      detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                         ['where', 598, 761]],
+                      handledBy: 'WHERE->AND'};
+
+  let twoOneError = {mistakeWord: [itemsToFind.indexOf('from'),
+                                   ['from', 414, 463]],
+                      detectedAtKeyword: [itemsToFind.indexOf('select'),
+                                         ['select', 525, 574]]};
+
+  let twoTwoError = {mistakeWord: [itemsToFind.indexOf('from'),
+                                   ['from', 612, 662]],
+                      detectedAtKeyword: [itemsToFind.indexOf('select'),
+                                         ['select', 663, 713]]};
+
+  expect(parseResults.foundIssues.level_2_0).toContainEqual(twoZeroError);
+  expect(parseResults.foundIssues.level_1_2).toContainEqual(oneTwoError);
+  expect(parseResults.foundIssues.level_2_1).toContainEqual(twoOneError);
+  expect(parseResults.foundIssues.level_2_2).toContainEqual(twoTwoError);
+
+  visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
+                                   parseResults.levelTreeStructure);
+
+  // Check if all errors were incorporated as expected.
+  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
+    'second WHERE');
+  expect(ast.where.left.right.value[0].having.mistakes[1]).toContainEqual(
+    'WHERE with aggregation');
+  expect(ast).toBe('Need to add tests for checking error messages on this one.');
+});
