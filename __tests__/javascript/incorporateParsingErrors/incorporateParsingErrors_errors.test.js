@@ -38,9 +38,14 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
+                   + 'meant to be used after the keyword FROM in your query.';
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
+                  + 'you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
-  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
+  expect(ast.groupby[0].mistakes).toContainEqual(groupByMessage);
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -73,9 +78,14 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
+                   + 'meant to be used after the keyword FROM in your query.';
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
+                  + 'you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
-  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
+  expect(ast.groupby[0].mistakes).toContainEqual(groupByMessage);
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -108,8 +118,11 @@ WHERE c.cID = SUM(p.cID)
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
+                    + 'you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('WHERE with aggregation');
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -161,9 +174,13 @@ WHERE c.cName LIKE '%a%';
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because of '
+                  + 'the GROUP BY statement in front of it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
-  expect(ast.having.mistakes[1]).toContainEqual('misplaced keyword');
+  // Keyword location issue should be gone.
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
+  expect(ast.having.mistakes[1]).not.toBeDefined();
 });
 
 
@@ -188,9 +205,11 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
+                   + 'meant to be used after the keyword FROM in your query.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
-    'misplaced keyword');
+  expect(ast.where.left.right.value[0].groupby[0].mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -215,9 +234,11 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
+                   + 'meant to be used after the keyword FROM in your query.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.where.left.right.value[0].groupby[0].mistakes[0]).toContainEqual(
-    'misplaced keyword');
+  expect(ast.where.left.right.value[0].groupby[0].mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -287,8 +308,10 @@ FROM customer, purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'Incorrect usage of GROUP BY keyword.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
+  expect(ast.columns[0].expr.mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -321,8 +344,10 @@ FROM customer, purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'Incorrect usage of GROUP BY keyword.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
+  expect(ast.columns[0].expr.mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -355,8 +380,10 @@ FROM purchase
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'Incorrect usage of GROUP BY keyword.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.columns[0].expr.mistakes[0]).toContainEqual('incorrect usage of keyword');
+  expect(ast.columns[0].expr.mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -388,9 +415,10 @@ AND COUNT(GROUP BY p.pID) < 5;`
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(groupByError);
 
+  let groupByMessage = 'Incorrect usage of GROUP BY keyword.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.right.left.args.expr.mistakes[0]).toContainEqual(
-    'incorrect usage of keyword');
+  expect(ast.having.right.left.args.expr.mistakes).toContainEqual(groupByMessage);
 });
 
 
@@ -483,9 +511,14 @@ FROM customer AS c, purchase AS p
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
+                     + 'meant to be used after the keyword WHERE in your query.';
+  let whereMessage = 'This WHERE keyword appeared earlier than it is supposed to. It is '
+                     + 'meant to be used after the keyword FROM in your query.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.groupby[0].mistakes[0]).toContainEqual('misplaced keyword');
-  expect(ast.from[0].mistakes[0]).toContainEqual('misplaced keyword');
+  expect(ast.groupby[0].mistakes).toContainEqual(groupByMessage);
+  expect(ast.where.mistakes).toContainEqual(whereMessage);
 });
 
 
@@ -520,8 +553,11 @@ GROUP BY c.cName;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let whereMessage = 'You used the WHERE keyword here, but this needed to be AND. You should only '
+                     + 'use WHERE once per query, all further conditions should be AND.'
+
   // Check if all errors were incorporated as expected.
-  expect(ast.where.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.where.right.mistakes).toContainEqual(whereMessage);
 });
 
 
@@ -555,8 +591,11 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
+                    + 'you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -592,8 +631,11 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
+                    + 'you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
+  expect(ast.having.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -630,9 +672,11 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be part of the '
+                      ' HAVING keyword because you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
-  expect(ast.having.mistakes[1]).toContainEqual('WHERE with aggregation');
+  expect(ast.having.right.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -671,9 +715,11 @@ ORDER BY c.cName ASC;
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be part of the '
+                      ' HAVING keyword because you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.having.mistakes[0]).toContainEqual('second WHERE');
-  expect(ast.having.mistakes[1]).toContainEqual('WHERE with aggregation');
+  expect(ast.having.right.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -691,6 +737,14 @@ AND c.cID = p.cID
 GROUP BY c.cName
 ORDER BY c.cName ASC;`
 
+  // console.log('==========================================================\n'
+  //             + '==========================================================\n'
+  //             + '\n'
+  //             + '     Second WHERE should be HAVING, but in subquery    \n'
+  //             + '\n'
+  //             + '==========================================================\n'
+  //             + '==========================================================\n');
+  
   let clean_query = visCode.queryTextAdjustments(query);
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
@@ -711,11 +765,11 @@ ORDER BY c.cName ASC;`
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let havingMessage = 'You used the WHERE keyword here, but this needed to be part of the '
+                      ' HAVING keyword because you use aggregation in it.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
-    'second WHERE');
-  expect(ast.where.left.right.value[0].having.mistakes[1]).toContainEqual(
-    'WHERE with aggregation');
+  expect(ast.where.left.right.value[0].having.right.mistakes).toContainEqual(havingMessage);
 });
 
 
@@ -746,13 +800,13 @@ WHERE b.alsothat in (SELECT alsothat
                     );
 `
 
-  // console.log('==========================================================\n'
-  //             + '==========================================================\n'
-  //             + '\n'
-  //             + '                THINGS ARE BREAKING HERE                    \n'
-  //             + '\n'
-  //             + '==========================================================\n'
-  //             + '==========================================================\n');
+  console.log('==========================================================\n'
+              + '==========================================================\n'
+              + '\n'
+              + '     Finding and marking errors at many levels at once    \n'
+              + '\n'
+              + '==========================================================\n'
+              + '==========================================================\n');
   
   let clean_query = visCode.queryTextAdjustments(query);
   let parseResults = visCode.parseQuery(clean_query);
@@ -792,10 +846,25 @@ WHERE b.alsothat in (SELECT alsothat
   visCode.incorporateParsingErrors(ast, parseResults.foundIssues,
                                    parseResults.levelTreeStructure);
 
+  let twoZeroMessage = 'This WHERE keyword appeared earlier than it is supposed to. It is '
+                       + 'meant to be used after the keyword FROM in your query.';
+
+  let oneTwoMessage = 'You used the WHERE keyword here, but this needed to be AND. You should only '
+                      + 'use WHERE once per query, all further conditions should be AND.';
+
+  let twoOneMessage = 'This SELECT keyword appeared later than it is supposed to. It is '
+                      + 'meant to be used before the keyword FROM in your query.';
+
+  let twoTwoMessage = 'This FROM keyword appeared earlier than it is supposed to. It is '
+                      + 'meant to be used after the keyword SELECT in your query.';
+
   // Check if all errors were incorporated as expected.
-  expect(ast.where.left.right.value[0].having.mistakes[0]).toContainEqual(
-    'second WHERE');
-  expect(ast.where.left.right.value[0].having.mistakes[1]).toContainEqual(
-    'WHERE with aggregation');
-  expect(ast).toBe('Need to add tests for checking error messages on this one.');
+  expect(ast.from[1].expr.where.right.right.value[0].where.mistakes).toContainEqual(
+    twoZeroMessage);
+  expect(ast.where.right.value[0].where.right.mistakes).toContainEqual(
+    oneTwoMessage);
+  expect(ast.where.right.value[0].where.left.expr.columns[0].mistakes).toContainEqual(
+    twoOneMessage);
+  expect(ast.where.right.value[0].where.right.expr.from[0].mistakes).toContainEqual(
+    twoTwoMessage);
 });

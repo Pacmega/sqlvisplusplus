@@ -45026,9 +45026,9 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
   if (ast.type === 'select') {
     // This is a subquery root!
     foundNumber++;
-    console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
-                + ' found in AST, sub-tree located is:\n'
-                + util.inspect(ast, false, 3, true));
+    // console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
+    //             + ' found in AST, sub-tree located is:\n'
+    //             + util.inspect(ast, false, 3, true));
     return {'ast': ast, 'foundNumber': foundNumber};
   } else {
     // Not a subquery root (yet). Keep going.
@@ -45037,13 +45037,13 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
       for (let visitableItemIndex in ast) {
         let visitedObject = ASTSubqueryDFS(ast[visitableItemIndex], targetNumber, foundNumber);
         if (visitedObject.foundNumber > foundNumber) {
-          console.log('Visited object in list was a subquery root.');
+          // console.log('Visited object in list was a subquery root.');
           // A new subquery root was found.
           foundNumber++;
           if (foundNumber === targetNumber) {
-            console.log('Most recent visited object from the list was '
-                            + 'the target. Returning:\n'
-                            + util.inspect(visitedObject.ast, false, 3, true));
+            // console.log('Most recent visited object from the list was '
+            //                 + 'the target. Returning:\n'
+            //                 + util.inspect(visitedObject.ast, false, 3, true));
             // This subquery was the target, return it.
             return {'ast': visitedObject.ast, 'foundNumber': foundNumber};
           }
@@ -45052,7 +45052,7 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
     } else {
       for (let element in ast) {
         if (visitableObjects.includes(element)) {
-          console.log('Visitable object located, visiting: ' + element);
+          // console.log('Visitable object located, visiting: ' + element);
           let visitedObject = ASTSubqueryDFS(ast[element], targetNumber, foundNumber);
           if (visitedObject.foundNumber > foundNumber) {
             // console.log('Visited object was a subquery root.');
@@ -45060,25 +45060,25 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
             foundNumber++;
             if (foundNumber === targetNumber) {
               // This subquery was the target, return it.
-              console.log('Most recent visited object from the list was '
-                            + 'the target. Returning:\n'
-                            + util.inspect(visitedObject.ast, false, 3, true));
+              // console.log('Most recent visited object from the list was '
+              //               + 'the target. Returning:\n'
+              //               + util.inspect(visitedObject.ast, false, 3, true));
               return {'ast': visitedObject.ast, 'foundNumber': foundNumber};
             }
           }
         } else if (visitableLists.includes(element)) {
-          console.log('List containing visitable items located with name: ' + element);
+          // console.log('List containing visitable items located with name: ' + element);
           for (let visitableItemIndex in ast[element]) {
             let visitableItem = ast[element][visitableItemIndex];
             let visitedObject = ASTSubqueryDFS(visitableItem, targetNumber, foundNumber);
             if (visitedObject.foundNumber > foundNumber) {
-              console.log('Visited object in list was a subquery root.');
+              // console.log('Visited object in list was a subquery root.');
               // A new subquery root was found.
               foundNumber++;
               if (foundNumber === targetNumber) {
-                console.log('Most recent visited object from the list was '
-                            + 'the target. Returning:\n'
-                            + util.inspect(visitedObject.ast, false, 3, true));
+                // console.log('Most recent visited object from the list was '
+                //             + 'the target. Returning:\n'
+                //             + util.inspect(visitedObject.ast, false, 3, true));
                 // This subquery was the target, return it.
                 return {'ast': visitedObject.ast, 'foundNumber': foundNumber};
               }
@@ -45098,14 +45098,14 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
 
 function findNamedSubquery(ast, subqueryLocationTrace) {
   // TODO: Optimize this implementation.
-  console.log('findNamedSubquery for the following AST & trace.\n'
-              + 'AST: ' + util.inspect(ast, false, 3, true) + '\n'
-              + 'LocationTrace: [' + subqueryLocationTrace + ']');
+  // console.log('findNamedSubquery for the following AST & trace.\n'
+  //             + 'AST: ' + util.inspect(ast, false, 3, true) + '\n'
+  //             + 'LocationTrace: [' + subqueryLocationTrace + ']');
 
   for (let i = 0; i < subqueryLocationTrace.length; i++) {
     let traceItem = subqueryLocationTrace[i];
-    console.log('Now going into location trace item ' + i + ': '
-                + traceItem);
+    // console.log('Now going into location trace item ' + i + ': '
+    //             + traceItem);
     if (ast.type !== 'select') {
       throw Error('Subquery root selected after trace step ' + i-1
                   + 'was not actually a subquery root. Stopping.\n'
@@ -45118,8 +45118,8 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
       continue;
     } else {
       // Either we need to dive deeper into the AST, or... something.
-      console.log('Attempting to find subquery for trace keyword ' + traceItem
-                  + ' within AST component.');
+      // console.log('Attempting to find subquery for trace keyword ' + traceItem
+      //             + ' within AST component.');
       ast = ast[keywordToASTName(traceItem)];
       
       if (typeof subqueryLocationTrace[Number(i)+1] === 'number') {
@@ -45135,8 +45135,8 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
         //   to find the first subquery in the keyword.
         ast = ASTSubqueryDFS(ast).ast;
       }
-      console.log('AST component found via ASTSubqueryDFS:\n'
-                  + util.inspect(ast, false, 3, true));
+      // console.log('AST component found via ASTSubqueryDFS:\n'
+      //             + util.inspect(ast, false, 3, true));
     }
   }
 
@@ -45160,9 +45160,45 @@ function findFirstgroup_by_(astPart, pathTaken=[]) {
 }
 
 
+function findLastFullBranch(astWhereHaving) {
+  if (!(typeof astWhereHaving.left !== 'undefined')
+       || !(typeof astWhereHaving.right !== 'undefined')) {
+    throw Error('Function expects to receive the AST root of a WHERE statement, but '
+                + 'received something else. Received the following:\n'
+                + astWhereHaving);
+  }
+
+  // TODO: if right side is a unary expr with a subquery, this doesn't work.
+  // TODO - Known issue: this breaks in general if a subquery is hit.
+
+  // Find the "right-most" part of the WHERE/HAVING in the AST that still has
+  //   .right and .left properties, meaning it is itself a full WHERE clause.
+  // We want the last full WHERE clause, because if we fixed a WHERE/HAVING
+  //   error by correcting the clause's wording, we know it will be at the end.
+  // console.log('Finding last full branch on AST part:\n'
+  //             + util.inspect(astWhereHaving, false, 4, true));
+  while (typeof astWhereHaving.right.left !== 'undefined'
+         && typeof astWhereHaving.right.right !== 'undefined') {
+    // console.log('Saw a full branch on right side, going in. Going into .right of:\n'
+    //           + util.inspect(astWhereHaving, false, 4, true));
+    astWhereHaving = astWhereHaving.right;
+  }
+  // console.log('No more full right side branches to go into. Returning this:\n'
+  //             + util.inspect(astWhereHaving, false, 4, true));
+  return astWhereHaving;
+}
+
+
 function addMistake(ast, pathToInsertAt, mistakeMessage) {
     for (let i = 0; i < pathToInsertAt.length; i++) {
       ast = ast[pathToInsertAt[i]];
+    }
+
+    if (Array.isArray(ast)) {
+      // This is not a normal object we can add a property to, this is an array
+      //   where this "property" would add to the list. Instead of introducing
+      //   "interesting" behavior, add the mistake to the first item.
+      ast = ast[0];
     }
 
     if (typeof ast.mistakes === 'undefined') {
@@ -45189,82 +45225,91 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
   //     at log (sqlvis/visualize.js:43986:17)
 
   for (let levelName in foundIssues) {
-    let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
-    console.log('Subquery found for level ' + levelName + ' based on trace ['
-                + levelTreeStructure[levelName] + '] is:'
-                + util.inspect(subqueryRoot, false, 5, true));
+    // console.log('Subquery found for level ' + levelName + ' based on trace ['
+    //             + levelTreeStructure[levelName] + '] is:'
+    //             + util.inspect(subqueryRoot, false, 5, true));
 
     for (let issueIndex in foundIssues[levelName]) {
+      // TODO: there should be a more efficient way to do this, e.g. saving the
+      //   path to the subquery and simply following that again from ast after
+      //   every issue to reset to subqueryRoot.
+      let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
+      
       let issue = foundIssues[levelName][issueIndex];
-      console.log(issue);
+      // console.log(issue);
+      
       if (typeof issue.handledBy !== 'undefined') {
         switch (issue.handledBy) {
           case 'WHERE->HAVING':
             // Leave a mistake marker on the root of the last left-right combo
             //   on the HAVING clause -> this is either the only L-R combo,
             //   or the last one meaning the part that was moved there
-            console.log('TODO! - WHERE->HAVING');
+            subqueryRoot = findLastFullBranch(subqueryRoot.having);
+            addMistake(subqueryRoot, [],
+                       'You used the WHERE keyword here, but this needed to be HAVING because of '
+                       + 'either the placement of this part of your query or the use of aggregation in it.');
+            // console.log('V1    - WHERE->HAVING');
             break;
 
           case 'WHERE->AND':
             // Leave a mistake marker on the root of the last left-right combo
             //   of the WHERE clause -> on the entire thing that was moved
-            console.log('TODO! - WHERE->AND');
+            subqueryRoot = findLastFullBranch(subqueryRoot.where);
+            addMistake(subqueryRoot, [],
+                       'You used the WHERE keyword here, but this needed to be AND. You should only '
+                       + 'use WHERE once per query, all further conditions should be AND.');
+            // console.log('V1    - WHERE->AND');
             break;
 
           case 'GROUP BY ->GROUP_BY_':
             // Walk through every single attribute, find & tag the first thing
             //   containing the prefix 'GROUP_BY_' without a mistake tag.
             console.log('TODO! - GROUP BY ->GROUP_BY_');
-            // let astPart = subqueryRoot;
-            // firstGroupByPath = findFirstgroup_by_(subqueryRoot);
-            // for (let pathIndex in firstGroupByPath) {
-            //   astPart = astPart[firstGroupByPath[pathIndex]];
-            // }
-            // // TODO: Improve this message.
-            // astPart.mistake = 'Incorrect usage of GROUP BY keyword.'
+            let astPart = subqueryRoot;
+            firstGroupByPath = findFirstgroup_by_(subqueryRoot);
+            for (let pathIndex in firstGroupByPath) {
+              astPart = astPart[firstGroupByPath[pathIndex]];
+            }
+            // TODO: Improve this message.
+            addMistake(subqueryRoot, firstGroupByPath, 'Incorrect usage of GROUP BY keyword.');
             break;
 
           default:
             throw Error('Unhandled handledBy issue type: ' + issue.handledBy);
         }
       } else {
-        if (issue.mistakeWord[0] === issue.detectedAtKeyword[0]) {
-          // Duplicate word. Go to detectedAtKeyword in the AST
-          //   and mark it as a duplicate keyword.
-          // let keyword
-
-          // TODO: This is not yet implemented!
-          console.log('TODO! - issue.mistakeWord[0] === issue.detectedAtKeyword[0]');
-
-        } else if (issue.detectedAtKeyword[0] < issue.mistakeWord[0]) {
-          // DetectedAtKeyword appeared too late. Go to detectedAtKeyword in
+        if (issue.detectedAtKeyword[0] < issue.mistakeWord[0]) {
+          // MistakeWord appeared too early. Go to detectedAtKeyword in
           //   the AST and mark it as appearing later than it should. Also
           //   mention what it should be in front of.
 
-          // TODO: Also mention what it should be in front of.
           // TODO: Is this message even correct?
-          console.log('V1    - issue.detectedAtKeyword[0] < issue.mistakeWord[0]');
-          addMistake(subqueryRoot, [keywordToASTName(issue.detectedAtKeyword[1][0])],
-                     'This keyword appeared later than it is supposed to.');
+          addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
+                     'This ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
+                     + 'earlier than it is supposed to. It is meant to be used after the keyword '
+                     + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
 
-        } else if (issue.detectedAtKeyword[0] > issue.mistakeWord[0]) {
+        } else { // issue.detectedAtKeyword[0] > issue.mistakeWord[0]
           // MistakeWord appeared too late. Go to mistakeWord in the AST
           //   and mark it as appearing later than it should. Also mention
           //   what it should be in front of.
 
-          // TODO: Also mention what it should be in front of.
-          // TODO: Is this message even correct?
-          console.log('V1    - issue.detectedAtKeyword[0] < issue.mistakeWord[0]');
+          // TODO: Unsure if this code & message are fully correct
+          // TODO: Code coverage shows this if branch is not covered!
+          //   ^ This hints toward a likely issue earlier on with detecting biggest errors.
           addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
-                     'This keyword appeared later than it is supposed to.');
+                     'This ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
+                     + 'later than it is supposed to. It is meant to be used before the keyword ' 
+                     + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
         }
+        // For issue.mistakeWord[0] === issue.detectedAtKeyword[0] there are 2
+        //   options: repeated WHERE, which should be handled already, or
+        //   repeated anything else was not handled earlier and so cannot be
+        //   parsed (so we wouldn't have made it here in the first place)
       }
     }
-    // TODO: everything really. Block comment above proposes approach.
   }
-  // throw Error('Not implemented yet.');
-  console.log(util.inspect(ast, false, null, true));
+  // console.log(util.inspect(ast, false, null, true));
 }
 
 
