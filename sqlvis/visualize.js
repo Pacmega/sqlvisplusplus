@@ -45110,7 +45110,7 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
       throw Error('Subquery root selected after trace step ' + i-1
                   + 'was not actually a subquery root. Stopping.\n'
                   + 'AST state:\n'
-                  + util.inspect(ast, false, 3, true));
+                  + ast);
     }
 
     if (typeof traceItem === 'number') {
@@ -46677,6 +46677,10 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   for (var index in ast.from) {
     var tableObject = ast.from[index];
 
+    /* TODO: check for GROUP_BY_ like syntax in column names, 
+       fix if present (.mistakes already carries the info).
+    */
+
     var alias = tableObject.as || null;
 
     // Store the aliases and ids to retrieve tables.
@@ -46684,22 +46688,33 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       aliases[tableObject.as] = tableObject.table;
     }
 
-    nodes.push({
+    /* TODO: I added a mention of mistakes here,
+       but I have no idea how to use it yet.
+    */
+    // TODO 2: noteToAdd can just be declared inside the nodes.push, as it was.
+    let nodeToAdd = {
       'parent': parent,
       'level': level,
       'label': tableObject.table || tableObject.as,
       'alias': alias,
       'width': 70,
       'height': 70,
-      'isHighlighted': tableObject.errorInfo? true : false,
-      'errorInfo': tableObject.errorInfo
-    });
+      'isHighlighted': (tableObject.errorInfo || tableObject.mistakes) ? true : false,
+      'errorInfo': tableObject.errorInfo,
+      'mistakeInfo': tableObject.mistakes
+    };
+    if (noteToAdd.errorInfo) {
+      console.log(util.inspect(nodeToAdd, false, null, true));
+    }
+    
+    nodes.push(nodeToAdd);
 
     if(tableObject.expr != null) {
       nodes = modifyNode(nodes, tableObject.as);
       var [subNodes, subLinks] = generateGraphTopLevel(element, tableObject.expr, aliases, schema, level+1, tableObject.as);
       if (tableObject.expr.errorInfo) {
         // The subquery has an error, so we mark the level as erroneous to highlight it
+        /* TODO: Also include mistakes here */
         levelsWithErrors.push({ name: tableObject.as, level: level+1, errorInfo: tableObject.expr.errorInfo });
       }
 
@@ -46721,10 +46736,24 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   for (index in ast.from) {
     tables.push(ast.from[index]['table']);
   }
+
+  /* TODO: 
+      Check if ast.columns[0] contains a .mistakes,
+      if so that should be copied into every select
+      that is done
+  */
   for (var index in ast.columns) {
     // If the query selects all columns, save them all to selections.
+    /* TODO: check for GROUP_BY_ like syntax and fix if present
+       in column names and table names
+    */
     var columnObj = ast.columns[index]['expr'] || '*';
     if (columnObj == '*' && level == 0) {
+      /* TODO: this appears to contain a bug!
+         SELECT * on multiple tables does not mark all tables
+         (but SQLite does return cart. prod. results). Likely
+         caused by the specific from[0] here, instead of all tables.
+      */
       var table = ast.from[0]['table'];
 
       // Check if there is an alias for this table
@@ -46758,60 +46787,67 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
       if (table in selection) {
         selection[table][column] = [''];
-    if (columnObj.errorInfo) {
-      var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
-      if (actualNode) {
-        actualNode.errorInfo = columnObj.errorInfo;
-        actualNode.isHighlighted = true;
-        actualNode.isExpanded = true;
-      }
-    }
+
+        /* TODO: this is a very specific completely errorInfo involved implementation.
+             It is most likely a good idea to either also include .mistakes here,
+             or create a separate but similar implementation for .mistakes.
+        */
+        if (columnObj.errorInfo) {
+          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          if (actualNode) {
+            actualNode.errorInfo = columnObj.errorInfo;
+            actualNode.isHighlighted = true;
+            actualNode.isExpanded = true;
+          }
+        }
       } else {
         selection[table] = {[column]: ['']};
-    // Maybe selection also contains an error
-    if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
-      // Create a missing table reference node
-      var id = (columnObj.table || columnObj.as) + columnObj.errorInfo.type;
-      nodes.push({
-        'id': id,
-        'parent': parent,
-        'level': level,
-        'label': columnObj.table || columnObj.as || "unidentified table",
-        'alias': tableA || "?",
-        'width': 70,
-        'height': 70,
-        'isHighlighted': true,
-        'isExpanded': true,
-        'errorInfo': columnObj.errorInfo
-      });
-      // Add it to the temporary schema so we can expand it
-      if (tempSchema[columnObj.table || columnObj.as]) {
-        tempSchema[columnObj.table || columnObj.as].push(column);
-      } else {
-        tempSchema[columnObj.table || columnObj.as] = [column];
-      }
-    } else if (columnObj.errorInfo && columnObj.errorInfo.type == "table_ref_invalid_column") {
-      var nameForAlias = aliases[table];
-      if (nameForAlias) {
-        // Add this column to the schema
-        currentSchema[nameForAlias].push(column);
-      }
-      // Highlight the selection with red to show this column does not belong there
-      selection[table][column].errorInfo = columnObj.errorInfo;
-      // Find a corresponding node and add the error to it
-      var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
-      if (actualNode) {
-        actualNode.errorInfo = columnObj.errorInfo;
-        actualNode.isHighlighted = true;
-        actualNode.isExpanded = true;
-      } else {
-        // No node found, it might be a level, so we add error to the level
-        levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
-      }
-    } else if (columnObj.errorInfo && columnObj.errorInfo.type == "with_ref_invalid_column") {
-      // WITH clauses are visualized by levels so we highlight the whole level
-      levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
-    }
+        // Maybe selection also contains an error
+        if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
+          // Create a missing table reference node
+          var id = (columnObj.table || columnObj.as) + columnObj.errorInfo.type;
+          /* TODO: NOTE TO SELF: This is how to create an
+               already expanded node! :D */
+          nodes.push({
+            'id': id,
+            'parent': parent,
+            'level': level,
+            'label': columnObj.table || columnObj.as || "unidentified table",
+            'alias': tableA || "?",
+            'width': 70,
+            'height': 70,
+            'isHighlighted': true,
+            'isExpanded': true,
+            'errorInfo': columnObj.errorInfo
+          });
+          // Add it to the temporary schema so we can expand it
+          if (tempSchema[columnObj.table || columnObj.as]) {
+            tempSchema[columnObj.table || columnObj.as].push(column);
+          } else {
+            tempSchema[columnObj.table || columnObj.as] = [column];
+          }
+        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "table_ref_invalid_column") {
+          var nameForAlias = aliases[table];
+          if (nameForAlias) {
+            // Add this column to the schema
+            currentSchema[nameForAlias].push(column);
+          }
+          // Highlight the selection with red to show this column does not belong there
+          selection[table][column].errorInfo = columnObj.errorInfo;
+          // Find a corresponding node and add the error to it
+          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          if (actualNode) {
+            actualNode.errorInfo = columnObj.errorInfo;
+            actualNode.isHighlighted = true;
+            actualNode.isExpanded = true;
+          } else {
+            // No node found, it might be a level, so we add error to the level
+            levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
+          }
+        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "with_ref_invalid_column") {
+          // WITH clauses are visualized by levels so we highlight the whole level
+          levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
+        }
       }
     // If there is no star and this element is a SQL aggregation, add it to the list of aggregations.
     } else if (columnObj['type'] == 'aggr_func') {
@@ -46867,7 +46903,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         links = links.concat(subCondition);
       }
     } else {
-      if (level == 0){
+      if (level == 0) {
         throw Error('Unknown column type: ' + ast.where.type);
       }
     }
@@ -47079,8 +47115,8 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
       link.errorInfo = node.left.errorInfo ? node.left.errorInfo : node.right.errorInfo;
 
       var supportedTypes = ["ambiguous_column_ref", "ambiguous_column_ref_same_aliases", "invalid_table_ref"];
-      addNodeForLeft = node.left.errorInfo && $.inArray(node.left.errorInfo.type, supportedTypes) != -1; // -1 not found, any other number refers to index found in the array
-      addNodeForRight = node.right.errorInfo && $.inArray(node.right.errorInfo.type, supportedTypes) != -1;
+      addNodeForLeft = node.left.errorInfo && supportedTypes.indexOf(node.left.errorInfo.type) !== -1; // -1 not found, any other number refers to index found in the array
+      addNodeForRight = node.right.errorInfo && supportedTypes.indexOf(node.right.errorInfo.type) !== -1;
 
       if (addNodeForLeft && addNodeForRight) {
         if (node.left.errorInfo.type == "ambiguous_column_ref" && node.left.errorInfo.type == "ambiguous_column_ref") {
@@ -47443,6 +47479,18 @@ define(function() {
 
   e.incorporateParsingErrors = function(ast, foundIssues, levelTreeStructure) {
     return incorporateParsingErrors(ast, foundIssues, levelTreeStructure);
+  }
+
+  e.referenceChecks = function(element, ast, aliases, schema, level, parent,
+                               isAWithClause = false, parentsRefs = []) {
+    extractAllowedRefs(element, ast, aliases, schema, level, parent,
+                       isAWithClause, parentsRefs);
+    analyzeReferences(element, ast, aliases, schema, level, parent);
+  }
+
+  e.generateGraphTopLevel = function(element, ast, aliases, schema, level, parent) {
+    let [nodes, links] = generateGraphTopLevel(element, ast, aliases, schema, level, parent)
+    return [nodes, links];
   }
 
   // Test with standard query test set
