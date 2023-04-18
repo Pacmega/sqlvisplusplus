@@ -39,13 +39,13 @@ WHERE c.cID = SUM(p.cID)
                                    parseResults.levelTreeStructure);
 
   let groupByMessage = 'This GROUP BY keyword appeared earlier than it is supposed to. It is '
-                   + 'meant to be used after the keyword FROM in your query.';
+                       + 'meant to be used after the keyword FROM in your query.';
   let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because '
-                  + 'you use aggregation in it.';
+                      + 'you use aggregation in it.';
 
   // Check if all errors were incorporated as expected.
-  expect(ast.groupby[0].mistakes).toContainEqual(groupByMessage);
-  expect(ast.having.mistakes).toContainEqual(havingMessage);
+  expect(ast.groupby[0].errorInfo.message).toBe(groupByMessage);
+  expect(ast.having.errorInfo.message).toBe(havingMessage);
 });
 
 
@@ -71,7 +71,7 @@ WHERE c.cID = SUM(p.cID)
                                  ['where', 80, 105]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 80, 105]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG->HAVING'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
   
@@ -111,7 +111,7 @@ WHERE c.cID = SUM(p.cID)
                                  ['where', 80, 105]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 80, 105]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG->HAVING'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
 
@@ -167,7 +167,7 @@ WHERE c.cName LIKE '%a%';
                                        ['where', 63, 82]],
                           detectedAtKeyword: [itemsToFind.indexOf('where'),
                                              ['where', 100, 124]],
-                          handledBy: 'WHERE->HAVING'};
+                          handledBy: 'WHERE_LOC->HAVING'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(doubleWhereError);
   
@@ -175,7 +175,7 @@ WHERE c.cName LIKE '%a%';
                                    parseResults.levelTreeStructure);
 
   let havingMessage = 'You used the WHERE keyword here, but this needed to be HAVING because of '
-                  + 'the GROUP BY statement in front of it.';
+                      + 'the GROUP BY statement in front of it.';
 
   // Check if all errors were incorporated as expected.
   // Keyword location issue should be gone.
@@ -584,7 +584,7 @@ ORDER BY c.cName ASC;
                                  ['where', 63, 82]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 83, 107]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG->HAVING'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
 
@@ -624,7 +624,7 @@ ORDER BY c.cName ASC;
                                  ['where', 63, 82]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 100, 124]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG_LOC->HAVING'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
 
@@ -665,7 +665,7 @@ ORDER BY c.cName ASC;
                                  ['where', 63, 82]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 83, 107]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG->HAVING_AND'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
 
@@ -708,7 +708,7 @@ ORDER BY c.cName ASC;
                                  ['where', 63, 82]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 124, 148]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG_LOC->HAVING_AND'};
 
   expect(parseResults.foundIssues.level_0_0).toContainEqual(whereError);
 
@@ -758,7 +758,7 @@ ORDER BY c.cName ASC;`
                                  ['where', 177, 216]],
                     detectedAtKeyword: [itemsToFind.indexOf('where'),
                                        ['where', 217, 256]],
-                    handledBy: 'WHERE->HAVING'};
+                    handledBy: 'WHERE_AGG_LOC->HAVING_AND'};
 
   expect(parseResults.foundIssues.level_1_0).toContainEqual(whereError);
 

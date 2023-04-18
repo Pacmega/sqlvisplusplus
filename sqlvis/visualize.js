@@ -1,5 +1,5 @@
 // TODO: this is only here to make util.inspect work. Remove eventually.
-const util = require('node:util');
+// const util = require('node:util');
 
 // Global variables
 
@@ -44557,7 +44557,7 @@ function fixSingleWrongWhere(keywordsPerLevel, query) {
 
         let issue = {mistakeWord: [expectedWhereIndex, [...levelKeywords[whereIndices[0]]]],
                      detectedAtKeyword: [expectedWhereIndex, [...levelKeywords[whereIndices[0]]]],
-                     handledBy: 'WHERE->HAVING'};
+                     handledBy: 'WHERE_AGG->HAVING'};
         foundIssues[levelName].push(issue);
 
         levelKeywords[whereIndices[0]][0] = 'having';        
@@ -44627,6 +44627,14 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           mistake.mistakeWord[1][2] + 1 === secondWhereStart;
 
         if (aggrFuncFound || groupByBefore2ndWhere) {
+          let whereHavingFix = 'WHERE';
+          if (aggrFuncFound) {
+            whereHavingFix += '_AGG';
+          }
+          if (groupByBefore2ndWhere) {
+            whereHavingFix += '_LOC';
+          }
+          
           if (keywordsInLevel.includes('having')) {
             // The second WHERE should be a HAVING, but there already is one so
             //   we cannot just change the word WHERE. Move this second WHERE
@@ -44685,8 +44693,9 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
               }
             }
 
-            // Also update the found mistake to reflect the change
-            mistake.handledBy = 'WHERE->HAVING';
+            // Also update the fix explanation to show that the WHERE became
+            //   an AND part of the HAVING (to find & explain the error later).
+            whereHavingFix += '->HAVING_AND';
 
             // Finally, delete the WHERE. This changes keyword array indices,
             //   so we rebuild keywordsInLevel afterwards to update it too.
@@ -44708,9 +44717,13 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
                                           secondWhereIndex + 1, 1);
 
-            // Also update the found mistake to reflect the change
-            mistake.handledBy = 'WHERE->HAVING';
+            // Also update the fix explanation to show that the WHERE became
+            //   a new HAVING (to find & explain the error later).
+            whereHavingFix += '->HAVING';
           }
+          // Update the found mistake to reflect the change.
+          mistake.handledBy = whereHavingFix;
+
         } else if (directlySubsequentWhere) {
           // Make the second where an AND of the first WHERE instead, and fill
           //   the extra space with spaces so all indices after this remain fine.
@@ -45146,7 +45159,7 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
 }
 
 
-function findFirstgroup_by_(astPart, pathTaken=[]) {
+function findFirstgroup_by_(astPart, pathTaken=[], alsoFix=false) {
   const checkItems = ['column', 'table', 'name', 'operator'];
 
   const visitableKeywords = ['with', 'options', 'distinct', 'columns',
@@ -45189,6 +45202,41 @@ function findLastFullBranch(astWhereHaving) {
 }
 
 
+function makeGroupAggErrorInfo(errorType, message, title) {
+  let errorInfo = {
+    'result': false,
+    'type': errorType,
+    'message': message,
+    'header': title
+  }
+  return errorInfo;
+}
+
+
+function insertErrorInfo(ast, newErrorInfo, maxErrors=5) {
+  if (Array.isArray(ast)) {
+    // This is not a normal object we can add a property to, this is an array
+    //   where this "property" would add to the list. Instead of introducing
+    //   "interesting" behavior, add the mistake to the first item.
+    ast = ast[0];
+  }
+
+  if (typeof ast.errorInfo === 'undefined') {
+    ast.errorInfo = newErrorInfo;
+  }
+  else {
+    for (let i = 1; i < maxErrors; i++) {
+      let errorName = 'errorInfo' + i;
+      if (typeof ast[errorName] === 'undefined') {
+        ast[errorName] = newErrorInfo;
+        return
+      }
+    }
+    throw Error('Refusing to add a ' + maxErrors+1 + 'th error to AST node.\n'
+                + 'State of AST now: ' + ast);
+  }
+}
+
 function addMistake(ast, pathToInsertAt, mistakeMessage) {
     for (let i = 0; i < pathToInsertAt.length; i++) {
       ast = ast[pathToInsertAt[i]];
@@ -45205,6 +45253,15 @@ function addMistake(ast, pathToInsertAt, mistakeMessage) {
       ast.mistakes = [];
     }
     ast.mistakes.push(mistakeMessage);
+}
+
+
+function isWhereToHaving(handledBy) {
+  let [origin, resolution] = handledBy.split('->');
+  if (origin.includes('WHERE') && resolution.includes('HAVING')) {
+    return true;
+  }
+  return false;
 }
 
 
@@ -45237,45 +45294,85 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
       
       let issue = foundIssues[levelName][issueIndex];
       // console.log(issue);
+
+      let errorMessage = '== TEMP MESSAGE (should not be seen) ==';
+      let errorTitle = '= TEMP TITLE =';
+      let newErrorInfo;
       
       if (typeof issue.handledBy !== 'undefined') {
-        switch (issue.handledBy) {
-          case 'WHERE->HAVING':
-            // Leave a mistake marker on the root of the last left-right combo
-            //   on the HAVING clause -> this is either the only L-R combo,
-            //   or the last one meaning the part that was moved there
-            subqueryRoot = findLastFullBranch(subqueryRoot.having);
-            addMistake(subqueryRoot, [],
-                       'You used the WHERE keyword here, but this needed to be HAVING because of '
-                       + 'either the placement of this part of your query or the use of aggregation in it.');
-            // console.log('V1    - WHERE->HAVING');
-            break;
+        if (isWhereToHaving(issue.handledBy)) {
+          let [origin, resolution] = issue.handledBy.split('->');
+          let aggregationReason = 'you used aggregation in it';
+          let locationReason = 'of the placement of this part of your query';
 
-          case 'WHERE->AND':
-            // Leave a mistake marker on the root of the last left-right combo
-            //   of the WHERE clause -> on the entire thing that was moved
-            subqueryRoot = findLastFullBranch(subqueryRoot.where);
-            addMistake(subqueryRoot, [],
-                       'You used the WHERE keyword here, but this needed to be AND. You should only '
-                       + 'use WHERE once per query, all further conditions should be AND.');
-            // console.log('V1    - WHERE->AND');
-            break;
+          origin = origin.split('_');
+          resolution = resolution.split('_');
+          // TODO: handle the specific WHERE->HAVING possibilities
+          
+          errorTitle = 'WHERE should be ';
+          errorMessage = 'You used the WHERE keyword here, but this needed to be ';
+          
+          if (resolution.includes('AND')) {
+            errorTitle += 'part of ';
+            errorMessage += 'part of ';
+          }
 
-          case 'GROUP BY ->GROUP_BY_':
-            // Walk through every single attribute, find & tag the first thing
-            //   containing the prefix 'GROUP_BY_' without a mistake tag.
-            console.log('TODO! - GROUP BY ->GROUP_BY_');
-            let astPart = subqueryRoot;
-            firstGroupByPath = findFirstgroup_by_(subqueryRoot);
-            for (let pathIndex in firstGroupByPath) {
-              astPart = astPart[firstGroupByPath[pathIndex]];
+          errorTitle += 'HAVING';
+          errorMessage += 'a HAVING statement because ';
+          
+          if (origin.includes('LOC')) {
+            errorMessage += locationReason;
+            if (origin.includes('AGG')) {
+              errorMessage += 'and also because ' + aggregationReason + '.';
             }
-            // TODO: Improve this message.
-            addMistake(subqueryRoot, firstGroupByPath, 'Incorrect usage of GROUP BY keyword.');
-            break;
+          } else {
+            // It must contain >= 1 of [AGG, LOC], so aggregation issue.
+            errorMessage += aggregationReason + '.';
+          }
 
-          default:
-            throw Error('Unhandled handledBy issue type: ' + issue.handledBy);
+          // Leave a mistake marker on the root of the last left-right combo
+          //   on the HAVING clause -> this is either the only L-R combo,
+          //   or the last one meaning the part that was moved there
+          subqueryRoot = findLastFullBranch(subqueryRoot.having);
+          // These down here were the original.
+          // errorMessage = 'You used the WHERE keyword here, but this needed to be '
+          //                + 'HAVING because of either the placement of this part of '
+          //                + 'your query or the use of aggregation in it.';
+          // errorTitle = 'WHERE should be HAVING';
+          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot, newErrorInfo);
+          // console.log('V2    - WHERE->HAVING');
+
+        } else if (issue.handledBy === 'WHERE->AND') {
+          // Leave a mistake marker on the root of the last left-right combo
+          //   of the WHERE clause -> on the entire thing that was moved
+          subqueryRoot = findLastFullBranch(subqueryRoot.where);
+          errorMessage = 'You used the WHERE keyword here, but this needed to be '
+                         + 'AND. You should only use WHERE once per query, all '
+                         + 'further conditions should be AND.';
+          errorTitle = 'WHERE should be AND';
+          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot, newErrorInfo);
+          // console.log('V2    - WHERE->AND');
+
+        } else if (issue.handledBy === 'GROUP BY ->GROUP_BY_') {
+          // Walk through every single attribute, find & tag the first thing
+          //   containing the prefix 'GROUP_BY_' without a mistake tag.
+          console.log('TODO! - GROUP BY ->GROUP_BY_');
+          let astPart = subqueryRoot;
+          firstGroupByPath = findFirstgroup_by_(subqueryRoot, true);
+          for (let pathIndex in firstGroupByPath) {
+            astPart = astPart[firstGroupByPath[pathIndex]];
+          }
+          errorMessage = 'GROUP BY is meant to be used as a keyword like e.g. SELECT '
+                         + 'and FROM, and should not be within any keyword/function.';
+          errorTitle = 'Incorrect usage of GROUP BY';
+          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot, newErrorInfo);
+          // console.log('V1    - WHERE->AND');
+
+        } else {
+          throw Error('Unhandled handledBy issue type: ' + issue.handledBy);
         }
       } else {
         if (issue.detectedAtKeyword[0] < issue.mistakeWord[0]) {
@@ -45284,10 +45381,17 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           //   mention what it should be in front of.
 
           // TODO: Is this message even correct?
-          addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
-                     'This ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
-                     + 'earlier than it is supposed to. It is meant to be used after the keyword '
-                     + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
+          errorMessage = 'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared earlier '
+                         + 'than it is supposed to. It is meant to be used after the keyword '
+                         + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
+          errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
+          newErrorInfo = makeGroupAggErrorInfo('Early keyword', errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
+          // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
+          //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
+          //            + 'earlier than it is supposed to. It is meant to be used after the keyword '
+          //            + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
+          // console.log('V2    - EARLY KEYWORD');
 
         } else { // issue.detectedAtKeyword[0] > issue.mistakeWord[0]
           // MistakeWord appeared too late. Go to mistakeWord in the AST
@@ -45297,16 +45401,26 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           // TODO: Unsure if this code & message are fully correct
           // TODO: Code coverage shows this if branch is not covered!
           //   ^ This hints toward a likely issue earlier on with detecting biggest errors.
-          addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
-                     'This ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
-                     + 'later than it is supposed to. It is meant to be used before the keyword ' 
-                     + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
+          errorMessage = 'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared later '
+                         + 'than it is supposed to. It is meant to be used before the keyword '
+                         + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
+          errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
+          newErrorInfo = makeGroupAggErrorInfo('Late keyword', errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
+
+          // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
+          //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
+          //            + 'later than it is supposed to. It is meant to be used before the keyword ' 
+          //            + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
+          // console.log('V1    - LATE KEYWORD');
         }
         // For issue.mistakeWord[0] === issue.detectedAtKeyword[0] there are 2
         //   options: repeated WHERE, which should be handled already, or
         //   repeated anything else was not handled earlier and so cannot be
         //   parsed (so we wouldn't have made it here in the first place)
       }
+      console.log(subqueryRoot);
+      console.log(newErrorInfo);
     }
   }
   // console.log(util.inspect(ast, false, null, true));
@@ -46657,6 +46771,21 @@ function underlineArr(arrayOfStrings) {
   return arrayOfStrings.map(a => "<ins>" + a + "</ins>");
 }
 
+
+function appendMultiErrorInfo(appendTo, origin, maxErrors=5) {
+  // It is possible for a table to have multiple errorInfo items.
+  for (let i = 1; i < maxErrors; i++) {
+    let newName = 'errorInfo' + i;
+    if (typeof origin[newName] === 'undefined') {
+      // All errors found
+      return;
+    } else {
+      appendTo[newName] = origin[newName];
+    }
+  }
+}
+
+
 /**
 * Generates all the elements for the drawing, as well as drawing all the nodes and rectangles.
 * This fuction is called recursively to travel through the AST nested tree.
@@ -46673,6 +46802,11 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   var nodes = [];
   var links = [];
 
+  let repeatFromError = typeof ast.from[0].errorInfo !== 'undefined'
+      ? ast.from[0].errorInfo : false;
+  let repeatSelectError = typeof ast.columns[0].errorInfo !== 'undefined'
+      ? ast.columns[0].errorInfo : false;
+  
   // First find all tables that are used and add them as nodes.
   for (var index in ast.from) {
     var tableObject = ast.from[index];
@@ -46680,6 +46814,11 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     /* TODO: check for GROUP_BY_ like syntax in column names, 
        fix if present (.mistakes already carries the info).
     */
+
+    // Using !=, not !==, because for loop index is a string and not a number
+    if (repeatFromError && index != 0) {
+      tableObject.errorInfo = repeatFromError;
+    }
 
     var alias = tableObject.as || null;
 
@@ -46690,8 +46829,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
     /* TODO: I added a mention of mistakes here,
        but I have no idea how to use it yet.
+       Update: removed, migrating to errorInfo.
     */
-    // TODO 2: noteToAdd can just be declared inside the nodes.push, as it was.
     let nodeToAdd = {
       'parent': parent,
       'level': level,
@@ -46699,12 +46838,16 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       'alias': alias,
       'width': 70,
       'height': 70,
-      'isHighlighted': (tableObject.errorInfo || tableObject.mistakes) ? true : false,
-      'errorInfo': tableObject.errorInfo,
-      'mistakeInfo': tableObject.mistakes
+      'isHighlighted': (tableObject.errorInfo) ? true : false,
+      'errorInfo': tableObject.errorInfo
     };
-    if (noteToAdd.errorInfo) {
-      console.log(util.inspect(nodeToAdd, false, null, true));
+
+    // It is possible for a table to have multiple errorInfo items.
+    appendMultiErrorInfo(nodeToAdd, tableObject);
+    
+    if (nodeToAdd.errorInfo) {
+      // console.log(util.inspect(nodeToAdd, false, null, true));
+      console.log(nodeToAdd);
     }
     
     nodes.push(nodeToAdd);
@@ -46714,8 +46857,16 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       var [subNodes, subLinks] = generateGraphTopLevel(element, tableObject.expr, aliases, schema, level+1, tableObject.as);
       if (tableObject.expr.errorInfo) {
         // The subquery has an error, so we mark the level as erroneous to highlight it
-        /* TODO: Also include mistakes here */
-        levelsWithErrors.push({ name: tableObject.as, level: level+1, errorInfo: tableObject.expr.errorInfo });
+        /* TODO: Also include mistakes here
+           Update: changed, but unsure if fixed (or even functional) */
+        let subqueryError = {
+          name: tableObject.as,
+          level: level+1,
+          errorInfo: tableObject.expr.errorInfo
+        };
+        // It is possible for a table to have multiple errorInfo items.
+        appendMultiErrorInfo(nodeToAdd, tableObject);
+        levelsWithErrors.push(nodeToAdd);
       }
 
       nodes = nodes.concat(subNodes);
@@ -46737,17 +46888,25 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     tables.push(ast.from[index]['table']);
   }
 
-  /* TODO: 
-      Check if ast.columns[0] contains a .mistakes,
-      if so that should be copied into every select
-      that is done
-  */
   for (var index in ast.columns) {
     // If the query selects all columns, save them all to selections.
     /* TODO: check for GROUP_BY_ like syntax and fix if present
        in column names and table names
     */
+
     var columnObj = ast.columns[index]['expr'] || '*';
+    
+    // TODO: not sure yet if this will be used this way!
+    // Using != because for loop index is a string, not a number
+    if (repeatSelectError && index != 0) {
+      if (typeof ast.columns[index]['expr'] !== 'undefined') {
+        columnObj.errorInfo = repeatSelectError;
+      } else {
+        console.log('I have no idea what to do here, but it should be something.\n'
+                    + 'columnObj === ' + columnObj + ', but how to work with that?');
+      }
+    }
+
     if (columnObj == '*' && level == 0) {
       /* TODO: this appears to contain a bug!
          SELECT * on multiple tables does not mark all tables
@@ -46773,6 +46932,11 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           selection[tableA] = {[column]: ['']};
         }
       }
+
+      /* TODO: previously there was no way this could go wrong, now there is.
+         Need to add an errorInfo implementation here.
+      */
+
     // If there is no star and the select is a simple column reference, add it to the list of selections.
     } else if (columnObj['type'] == 'column_ref' && level == 0) {
       var column = columnObj['column'];
@@ -46788,10 +46952,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       if (table in selection) {
         selection[table][column] = [''];
 
-        /* TODO: this is a very specific completely errorInfo involved implementation.
-             It is most likely a good idea to either also include .mistakes here,
-             or create a separate but similar implementation for .mistakes.
-        */
         if (columnObj.errorInfo) {
           var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
           if (actualNode) {
@@ -47418,7 +47578,7 @@ function getTable(column, schema, tables=null) {
   }
 }
 
-
+/*
 // UNCOMMENT FROM HERE UNTIL FURTHER DOWN FOR TESTING AND LOCAL
 //    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
 // (+- 60 lines, there is an end comment further down)
@@ -47503,7 +47663,7 @@ define(function() {
 
 // COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
 //   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
-
+*/
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
