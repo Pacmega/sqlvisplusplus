@@ -44264,8 +44264,11 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
       return onlyKeepBiggestMistakes(mistakeList, arrayIndex + 1);
     }
   }
-  else if (sameMistakeWord.length > sameDetectedAtWord.length) {
-    // mistakeWord appears too early.
+  else if (sameMistakeWord.length >= sameDetectedAtWord.length) {
+    // mistakeWord either appears too early, or moving either involved keyword
+    //   takes the same amount of steps (in which case there are likely
+    //   multiple keywords misordered).
+    
     let biggestMistakeWord = {'detectedAtKeyword_index': -1,
                               'mistakeIndex': -1};
     let mistakeIndicesToDrop = [];
@@ -44377,13 +44380,6 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
     //   and check the biggest item again to ensure it has no other connections
     //   with other mistakes that should also be taken into account.
     return onlyKeepBiggestMistakes(mistakeList, arrayIndex);
-  }
-  else {
-    // I don't think this is possible, but if it occurs give an errors message
-    //   here to describe that something and wrong and how/where it happened.
-    throw Error('sameMistakeWord.length === sameDetectedAtWord.length, but both '
-                + 'mistakeWord and detectedAtWord appear in other mistakes too. '
-                + 'I do not know what to do with this.');
   }
 }
 
@@ -45307,7 +45303,6 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
 
           origin = origin.split('_');
           resolution = resolution.split('_');
-          // TODO: handle the specific WHERE->HAVING possibilities
           
           errorTitle = 'WHERE should be ';
           errorMessage = 'You used the WHERE keyword here, but this needed to be ';
@@ -45889,6 +45884,7 @@ function drawGraph(vertices, links, container, d3, schema) {
   nodesToExpand = [...new Set(nodesToExpand)];
   // Expand nodes that are related to errors
   console.log("nodes to expand: ", nodesToExpand);
+  console.log('THIS IS A CHECK TO SEE IF JUPYTER CODE IS UPDATED');
   for (var n in nodesToExpand) {
     const oldTransform = inner.attr('transform');
     var node = nodesToExpand[n];
@@ -46773,11 +46769,16 @@ function underlineArr(arrayOfStrings) {
 
 
 function appendMultiErrorInfo(appendTo, origin, maxErrors=5) {
-  // It is possible for a table to have multiple errorInfo items.
-  for (let i = 1; i < maxErrors; i++) {
-    let newName = 'errorInfo' + i;
+  // It is possible for the table we are copying the errors from to have had
+  //   multiple errorInfo items.
+  for (let i = 0; i < maxErrors; i++) {
+
+    let newName = i > 0 ? 'errorInfo' + i : 'errorInfo';
     if (typeof origin[newName] === 'undefined') {
       // All errors found
+      if (i === 0) {
+        console.warn('Attempting to copy errors from origin that had none: ', origin);
+      }
       return;
     } else {
       appendTo[newName] = origin[newName];
@@ -46806,7 +46807,9 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       ? ast.from[0].errorInfo : false;
   let repeatSelectError = typeof ast.columns[0].errorInfo !== 'undefined'
       ? ast.columns[0].errorInfo : false;
-  
+  let repeatGroupByError = typeof ast.groupby[0].errorInfo !== 'undefined'
+      ? ast.groupby[0].errorInfo : false;
+
   // First find all tables that are used and add them as nodes.
   for (var index in ast.from) {
     var tableObject = ast.from[index];
@@ -46829,7 +46832,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
     /* TODO: I added a mention of mistakes here,
        but I have no idea how to use it yet.
-       Update: removed, migrating to errorInfo.
+       Update: removed, migrating to errorInfo. Untested tho.
     */
     let nodeToAdd = {
       'parent': parent,
@@ -46838,35 +46841,32 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       'alias': alias,
       'width': 70,
       'height': 70,
-      'isHighlighted': (tableObject.errorInfo) ? true : false,
-      'errorInfo': tableObject.errorInfo
+      'isHighlighted': (tableObject.errorInfo) ? true : false
     };
 
-    // It is possible for a table to have multiple errorInfo items.
+    // Add this way, as it is possible tableObject has multiple errorInfo items.
     appendMultiErrorInfo(nodeToAdd, tableObject);
     
     if (nodeToAdd.errorInfo) {
       // console.log(util.inspect(nodeToAdd, false, null, true));
       console.log(nodeToAdd);
     }
-    
+
     nodes.push(nodeToAdd);
 
     if(tableObject.expr != null) {
       nodes = modifyNode(nodes, tableObject.as);
       var [subNodes, subLinks] = generateGraphTopLevel(element, tableObject.expr, aliases, schema, level+1, tableObject.as);
       if (tableObject.expr.errorInfo) {
-        // The subquery has an error, so we mark the level as erroneous to highlight it
-        /* TODO: Also include mistakes here
-           Update: changed, but unsure if fixed (or even functional) */
+        // Subquery has an error, mark the level as erroneous to highlight it.
+        /* TODO: error prop untested */
         let subqueryError = {
           name: tableObject.as,
-          level: level+1,
-          errorInfo: tableObject.expr.errorInfo
+          level: level+1
         };
-        // It is possible for a table to have multiple errorInfo items.
-        appendMultiErrorInfo(nodeToAdd, tableObject);
-        levelsWithErrors.push(nodeToAdd);
+        // Add this way, as it is possible tableObject has multiple errorInfo items.
+        appendMultiErrorInfo(subqueryError, tableObject);
+        levelsWithErrors.push(subqueryError);
       }
 
       nodes = nodes.concat(subNodes);
@@ -47073,20 +47073,67 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
   // Find if there is a groupby clause.
   if (ast.groupby != null) {
+    const visualizableErrors = ['Early keyword', 'Late keyword'];
     for (var i in ast.groupby) {
+      // Most errors break the GROUP BY, but early/late keywords should be
+      //   visualized as if functional but marked with an error.
+      /* TODO / Known issue: GROUP BY marks entire table and loses GROUP(n) on column itself.
+           This is true for all SQLVis+ GROUP BY related errors, so is inherited. I think
+           this might be solved by the selection update at the bottom of this if, but Jupyter
+           is refusing to run the new code.
+      */
       if (ast.groupby[i].errorInfo) {
-        // Find a corresponding node and add the error to it
-        var columnObj = ast.groupby[i];
-        // The table is either specified or we get it manually from the schema
-        var table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
-        var actualNode = nodes.find(n => n.label == table || n.alias == table);
-        if (actualNode) {
-          actualNode.errorInfo = columnObj.errorInfo;
-          actualNode.isHighlighted = true;
-          actualNode.isExpanded = true;
+        if (visualizableErrors.includes(ast.groupby[i].errorInfo.type)) {
+          /* TODO: how to visualize this specific entry as an error while not breaking more?
+               Probably in a way similar to the else, but with the text somehow. This is very
+               much a WIP and likely also broken.
+          */
+
+          var columnObj = ast.groupby[i];
+          var column = columnObj.column;
+          var table = getTable(column, schema, tables)[0];
+
+          /* TODO: error here + commented code below.
+             This _might_ not be the right solution... and it crashes, too.
+          */
+          // TypeError: selection[table][column] is undefined
+          // selection[table][column].errorInfo = columnObj.errorInfo;
+
+          /* This down here highlights the entire node & makes the table red,
+             which is not what I want.
+          */
+          // Find a corresponding node and add the error to it
+          // var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          // if (actualNode) {
+          //   actualNode.errorInfo = columnObj.errorInfo;
+          //   actualNode.isHighlighted = true;
+          //   actualNode.isExpanded = true;
+          // }
+
+          console.warn('Visualizable GROUP BY error, but without an actual way to visualize it atm.');
+
+          aggregation = `GROUP (${parseInt(i)+1})`;
+
+          selection = addSelection(selection, aggregation, table, column, aliases);
+          setSelections(selection);
+
+          console.warn('This error should be visualizable, but I have not figured out how yet. This is probably not right. Some items:\n'
+                       + 'actualNode /w error is ' + actualNode + '\n'
+                       + 'Selections now = ' + selection);
         } else {
-          // No node found, it might be a level, so we add error to the level
-          levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
+          // Find a corresponding node and add the error to it
+          var columnObj = ast.groupby[i];
+          // The table is either specified or we get it manually from the schema
+          var table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
+          var actualNode = nodes.find(n => n.label == table || n.alias == table);
+          if (actualNode) {
+            actualNode.errorInfo = columnObj.errorInfo;
+            actualNode.isHighlighted = true;
+            actualNode.isExpanded = true;
+          } else {
+            // No node found, it might be a level, so we add error to the level
+            levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
+          }
         }
       } else {
         var column = ast.groupby[i].column;
@@ -47141,6 +47188,15 @@ function modifyNode(nodes, instance) {
 
 function generateGraphExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel) {
   if (ast.type == 'binary_expr') {
+    /* I have messed with this function a bit, unsure how much it affects. */
+
+    if (ast.errorInfo) {
+      // There was errorInfo put on the root of this WHERE. Propagating it into
+      //   each side of the predicate gets it picked up in the processing.
+      insertErrorInfo(ast.left, ast.errorInfo);
+      insertErrorInfo(ast.right, ast.errorInfo);
+    }
+
     // Special case: equality predicate
     if (ast.left.type == 'column_ref' && ast.right.type != 'select' && ast.right.type != 'expr_list') {
       var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
@@ -47158,23 +47214,24 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
 
       return [rNodes, rLinks];
     } else if (ast.left.type == 'column_ref' && ast.right.type == 'expr_list') {   
-        var nodes = []
-        var links = []
+        var nodes = [];
+        var links = [];
 
         for (var i in ast.right.value) {
           var [rNodes, rLinks] = generateGraphTopLevel(
-          element,
-          ast.right.value[i],
-          aliases, schema,
-          level + 1, ast.operator);
+            element,
+            ast.right.value[i],
+            aliases, schema,
+            level + 1, ast.operator
+          );
 
           nodes = nodes.concat(rNodes);
           links = links.concat(rLinks);
         }
         
         //Add the link for where x not in y
-        var column = ast.left.column
-        var table = ast.left.table || getTable(column, schema, tables)[0]
+        var column = ast.left.column;
+        var table = ast.left.table || getTable(column, schema, tables)[0];
 
         // Check if there is an alias for this table
         for (var alias in aliases) {
@@ -47182,19 +47239,20 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
             var tableA = alias;
           }
         }
-        var operator = ast.operator
-        var link = {};
-        link.sourceAlias = tableA || table
-        link.source = tableA || table
-        link.targetAlias = operator
-        link.target = operator
-        link.label = [column + ' ' + operator]
-        link.type = 'link'
 
-        links = links.concat(link)
+        var operator = ast.operator;
+        var link = {};
+        link.sourceAlias = tableA || table;
+        link.source = tableA || table;
+        link.targetAlias = operator;
+        link.target = operator;
+        link.label = [column + ' ' + operator];
+        link.type = 'link';
+
+        links = links.concat(link);
 
         return [nodes, links];
-      }
+    }
 
     var [lNodes, lLinks] = generateGraphExpression(
       element,
@@ -47211,6 +47269,11 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     return [lNodes.concat(rNodes), lLinks.concat(rLinks)];
 
   } else if (ast.type == 'unary_expr') {
+    // If there is errorInfo on the root of this where, push it down to the
+    //   expression so that it can be evaluated in the function.
+    if (ast.errorInfo) {
+      insertErrorInfo(ast.expr, ast.errorInfo);
+    }
     return generateGraphUnaryExpression(element, ast, aliases, schema, level+1, level);
   } else {
     alert("Something might be wrong with your where clause, please check your query.");
