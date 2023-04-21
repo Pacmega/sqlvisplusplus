@@ -45884,7 +45884,6 @@ function drawGraph(vertices, links, container, d3, schema) {
   nodesToExpand = [...new Set(nodesToExpand)];
   // Expand nodes that are related to errors
   console.log("nodes to expand: ", nodesToExpand);
-  console.log('THIS IS A CHECK TO SEE IF JUPYTER CODE IS UPDATED');
   for (var n in nodesToExpand) {
     const oldTransform = inner.attr('transform');
     var node = nodesToExpand[n];
@@ -46803,12 +46802,29 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   var nodes = [];
   var links = [];
 
-  let repeatFromError = typeof ast.from[0].errorInfo !== 'undefined'
-      ? ast.from[0].errorInfo : false;
-  let repeatSelectError = typeof ast.columns[0].errorInfo !== 'undefined'
-      ? ast.columns[0].errorInfo : false;
-  let repeatGroupByError = typeof ast.groupby[0].errorInfo !== 'undefined'
-      ? ast.groupby[0].errorInfo : false;
+  let repeatFromError = false;
+  let repeatSelectError = false;
+  let repeatGroupByError = false;
+
+  try {
+    repeatFromError = typeof ast.from[0].errorInfo !== 'undefined'
+                      ? ast.from[0].errorInfo : false;
+  }
+  catch (e) {
+    throw Error('There was no (valid) FROM statement, but a SELECT SQL query must have one.');
+  }
+  
+  try {
+    repeatSelectError = typeof ast.columns[0].errorInfo !== 'undefined'
+                        ? ast.columns[0].errorInfo : false;
+  }
+  catch (e) {
+    throw Error('There was no (valid) SELECT statement. Visualizable queries must be a SELECT query.');
+  }
+
+  if (ast.groupby !== null && typeof ast.groupby[0].errorInfo !== 'undefined') {
+    repeatGroupByError = ast.groupby[0].errorInfo;
+  }
 
   // First find all tables that are used and add them as nodes.
   for (var index in ast.from) {
