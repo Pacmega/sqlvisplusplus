@@ -45430,17 +45430,12 @@ function parseQuery(query) {
 
   let returnValues = {};
 
-  try{
-    returnValues.ast = parse_sql(query);
-  } catch (e) {
-    // console.log('Query contained errors that make it unparseable. Attempting repairs.');
-    var orderingFixResults = attemptOrderingFix(query);
-    
-    returnValues.ast = parse_sql(orderingFixResults.reorganizedQuery);
-    returnValues.foundIssues = orderingFixResults.foundIssues;
-    returnValues.levelTreeStructure = orderingFixResults.levelTreeStructure;
-  }
+  var orderingFixResults = attemptOrderingFix(query);
 
+  returnValues.ast = parse_sql(orderingFixResults.reorganizedQuery);
+  returnValues.foundIssues = orderingFixResults.foundIssues;
+  returnValues.levelTreeStructure = orderingFixResults.levelTreeStructure;
+  
   return returnValues;
 }
 
@@ -45476,7 +45471,7 @@ function visualize(query, schema, container, d3) {
     .attr('class', 'container');
 
   // If they exist, incorporate errors found & fixed during parsing
-  if (typeof parseResults.foundIssues !== 'undefined') {
+  if (parseResults.foundIssues !== 'undefined') {
     incorporateParsingErrors(ast, parseResults.foundIssues,
                              parseResults.levelTreeStructure);
   }
@@ -46832,6 +46827,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
     /* TODO: check for GROUP_BY_ like syntax in column names, 
        fix if present (.mistakes already carries the info).
+       UPDATE: shouldn't this be done much earlier?
     */
 
     // Using !=, not !==, because for loop index is a string and not a number
@@ -46846,10 +46842,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       aliases[tableObject.as] = tableObject.table;
     }
 
-    /* TODO: I added a mention of mistakes here,
-       but I have no idea how to use it yet.
-       Update: removed, migrating to errorInfo. Untested tho.
-    */
     let nodeToAdd = {
       'parent': parent,
       'level': level,
@@ -46860,13 +46852,15 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       'isHighlighted': (tableObject.errorInfo) ? true : false
     };
 
-    // Add this way, as it is possible tableObject has multiple errorInfo items.
-    appendMultiErrorInfo(nodeToAdd, tableObject);
-    
-    if (nodeToAdd.errorInfo) {
-      // console.log(util.inspect(nodeToAdd, false, null, true));
-      console.log(nodeToAdd);
+    // Add errorInfo this way, as it is possible a tableObject ends up having multiple errorInfo's.
+    if (tableObject.errorInfo) {
+      appendMultiErrorInfo(nodeToAdd, tableObject);
     }
+    
+    // if (nodeToAdd.errorInfo) {
+      // console.log(util.inspect(nodeToAdd, false, null, true));
+    //   console.log(nodeToAdd);
+    // }
 
     nodes.push(nodeToAdd);
 
@@ -46881,7 +46875,9 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           level: level+1
         };
         // Add this way, as it is possible tableObject has multiple errorInfo items.
-        appendMultiErrorInfo(subqueryError, tableObject);
+        // if tableObject.errorInfo {
+        //   appendMultiErrorInfo(subqueryError, tableObject);
+        // }
         levelsWithErrors.push(subqueryError);
       }
 
@@ -47189,6 +47185,17 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     links = links.concat(subLinks);
   }
 
+  /* TODO: this function is still a work in progress. Aiming to generate the
+     same visual result for now, but should change. That shouldn't really be
+     the case in the final version.
+  */
+  // if (ast.having != null) {
+  //   var [subNodes, subLinks] = generateHavingExpression(
+  //     element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level);
+  //   nodes = nodes.concat(subNodes);
+  //   links = links.concat(subLinks);
+  // }
+
   return [nodes, links];
 }
 
@@ -47326,6 +47333,45 @@ function isARefToWithClause(table) {
   return false;
 }
 
+
+function generateHavingExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel) {
+  if (ast.errorInfo) {
+    // There was errorInfo put on the root of this WHERE. Propagating it into
+    //   each side of the predicate gets it picked up in the processing.
+    insertErrorInfo(ast.left, ast.errorInfo);
+    insertErrorInfo(ast.right, ast.errorInfo);
+  }
+
+  console.warn('Generating HAVING expression is not fully functional at the moment.');
+
+  // if (ast.type === 'binary_expr') {
+  //   // Either one of the two sides has to be an aggregation function, or there
+  //   //   is a subquery that should be explored further. If so, recursion.
+  //   if (ast.left.type === 'aggr_func') {
+
+  //   } else if (ast.right.type === 'aggr_func') {
+
+  //   } else if (ast.left.type === 'select') {
+
+  //   } else if (ast.right.type === 'select') {
+
+  //   } else {
+  //     throw Error('HAVING statement that I am unsure');
+  //   }
+  // } else if (ast.type === 'unary_expr') {
+  //   console.warn('Not sure exactly how to deal with a unary expression in HAVING. Using '
+  //                + 'the implementation from WHERE currently.');
+  //   // If there is errorInfo on the root of this where, push it down to the
+  //   //   expression so that it can be evaluated in the function.
+  //   if (ast.errorInfo) {
+  //     insertErrorInfo(ast.expr, ast.errorInfo);
+  //   }
+  //   return generateGraphUnaryExpression(element, ast, aliases, schema, level+1, level);
+  // } else {
+  //   throw Error('Unknown AST type while generating HAVING expression: ' + ast.type + '\n'
+  //               + 'AST at this point: ' + ast);
+  // }
+}
 
 /**
 * Function to recursively retrieve all links from the where part of an AST.
@@ -47746,6 +47792,7 @@ define(function() {
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;
+
   function visualizeMain(container, query, schema){
     setSelections({})
     setConditions({})
