@@ -45025,13 +45025,13 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
   const visitableLists = ['columns', 'from', 'value'];
   const visitableElements = [...visitableObjects];
   visitableElements.push(...visitableLists);
-  console.log('Start of DFS. AST: ', ast);
+  // console.log('Start of DFS. AST: ', ast);
 
   if (ast.type === 'select') {
     // This is a subquery root!
     foundNumber++;
-    console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
-                + ' found in AST, sub-tree located is:\n', ast);
+    // console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
+    //             + ' found in AST, sub-tree located is:\n', ast);
                 // + util.inspect(ast, false, 3, true));
     return {'ast': ast, 'foundNumber': foundNumber};
   } else {
@@ -45041,7 +45041,7 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
       for (let visitableItemIndex in ast) {
         let visitedObject = ASTSubqueryDFS(ast[visitableItemIndex], targetNumber, foundNumber);
         if (visitedObject.foundNumber > foundNumber) {
-          console.log('Visited object in list was a subquery root.');
+          // console.log('Visited object in list was a subquery root.');
           // A new subquery root was found.
           foundNumber++;
           if (foundNumber === targetNumber) {
@@ -45071,7 +45071,7 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
             }
           }
         } else if (visitableLists.includes(element)) {
-          console.log('List containing visitable items located with name: ' + element);
+          // console.log('List containing visitable items located with name: ' + element);
           for (let visitableItemIndex in ast[element]) {
             let visitableItem = ast[element][visitableItemIndex];
             if (element === 'with') {
@@ -45107,16 +45107,16 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
 
 function findNamedSubquery(ast, subqueryLocationTrace) {
   // TODO: Optimize this implementation.
-  console.log('findNamedSubquery for the following AST & trace.\n'
+  // console.log('findNamedSubquery for the following AST & trace.\n'
               // + 'AST: ' + util.inspect(ast, false, 3, true) + '\n'
-              + 'AST: ', ast, '\n'
+              // + 'AST: ', ast, '\n'
               // + 'LocationTrace: [' + subqueryLocationTrace + ']');
-              + 'LocationTrace:', subqueryLocationTrace);
+              // + 'LocationTrace:', subqueryLocationTrace);
 
   for (let i = 0; i < subqueryLocationTrace.length; i++) {
     let traceItem = subqueryLocationTrace[i];
-    console.log('Now going into location trace item ' + i + ': '
-                + traceItem);
+    // console.log('Now going into location trace item ' + i + ': '
+                // + traceItem);
     if (ast.type !== 'select') {
       throw Error('Subquery root selected after trace step ' + i-1
                   + 'was not actually a subquery root. Stopping.\n'
@@ -45129,8 +45129,8 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
       continue;
     } else {
       // Either we need to dive deeper into the AST, or... something.
-      console.log('Attempting to find subquery for trace keyword ' + traceItem
-                  + ' within AST component.');
+      // console.log('Attempting to find subquery for trace keyword ' + traceItem
+      //             + ' within AST component.');
       ast = ast[keywordToASTName(traceItem)];
       
       if (typeof subqueryLocationTrace[Number(i)+1] === 'number') {
@@ -45146,7 +45146,7 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
         //   to find the first subquery in the keyword.
         ast = ASTSubqueryDFS(ast).ast;
       }
-      console.log('AST component found via ASTSubqueryDFS:\n', ast);
+      // console.log('AST component found via ASTSubqueryDFS:\n', ast);
                   // + util.inspect(ast, false, 3, true));
     }
   }
@@ -45383,7 +45383,6 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
                          + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
           errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
           newErrorInfo = makeGroupAggErrorInfo('Early keyword', errorMessage, errorTitle);
-          console.warn('Shit is breaking oh no', newErrorInfo, subqueryRoot);
           insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
           // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
           //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
@@ -46015,21 +46014,28 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         var classes = [];
         if (cons[label] && cons[label][d]) {
           if (cons[label].errorInfo) {
+            console.log('Errored condition:', cons[label][d]);
             /* Right now only the selected column is highlighted in red, to highlight condition
                 we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
             */
             classes.push('erroredSelection');
           } else {
+            console.log('Normal condition:', cons[label][d]);
             classes.push('condition');
           }
         }
+        
         if (selects[label] && selects[label][d]) {
           if (selects[label][d].errorInfo) {
+            console.log('Errored selection:', selects[label][d]);
             classes.push('erroredSelection');
           } else {
+            console.log('Normal selection:', selects[label][d]);
             classes.push('selection');
           }
         }
+
+        // TODO: @Pacmega: when adding HAVING, should add handling here too
         return classes.join(' ');
       });
 
@@ -46043,20 +46049,39 @@ function expand(node, id, d3, showAlertsOnFail = true) {
       .attr('class', function(d) {
         var classes = [];
         if (cons[label] && cons[label][d]) {
-          classes.push('condition');
+          if (cons[label].errorInfo) {
+            /* Right now only the selected column is highlighted in red, to highlight condition
+                we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
+            */
+            classes.push('erroredSelection');
+          } else {
+            classes.push('condition');
+          }
         }
+
         if (selects[label] && selects[label][d]) {
-          classes.push('selection');
+          if (selects[label][d].errorInfo) {
+            classes.push('erroredSelection');
+          } else {
+            classes.push('selection');
+          }
         }
+
+        // TODO: @Pacmega: when adding HAVING, should add handling here too
+
         return classes.join(' ');
       })
       .html(d => {
         if (cons[label] && cons[label][d]) {
           return '<div>' + cons[label][d].join('<br>') + '&nbsp</div>';
         }
+
         if (selects[label] && selects[label][d]) {
           return '<div>' + selects[label][d].join('<br>') + '&nbsp</div>';
         }
+
+        // TODO: @Pacmega: when adding HAVING, should add handling here too
+
         return '&nbsp';
       });
 
@@ -46070,6 +46095,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
     document.body.removeChild(table);
 
     // Make sure the node is big enough to hold the table
+    // TODO: since size issues occur regularly, maybe adjust?
     node.width = tableWidth;
     node.height = 1.1*tableHeight;
     node.label += table.outerHTML;
@@ -47087,7 +47113,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   if (ast.groupby != null) {
     const visualizableErrors = ['Early keyword', 'Late keyword'];
     for (var i in ast.groupby) {
-      console.warn('?????????????????');
       // Most errors break the GROUP BY, but early/late keywords should be
       //   visualized as if functional but marked with an error.
       /* TODO / Known issue: GROUP BY marks entire table and loses GROUP(n) on column itself.
@@ -47095,6 +47120,18 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
            this might be solved by the selection update at the bottom of this if, but Jupyter
            is refusing to run the new code.
       */
+
+      // Always create the aggregation & add it to the selection, this needs to
+      //   happen either way & otherwise errorInfo processing may break.
+      var columnObj = ast.groupby[i];
+      var column = columnObj.column;
+      var table = getTable(column, schema, tables)[0];
+
+      aggregation = `GROUP (${parseInt(i)+1})`;
+
+      selection = addSelection(selection, aggregation, table, column, aliases);
+      setSelections(selection);
+
       if (ast.groupby[i].errorInfo) {
         if (visualizableErrors.includes(ast.groupby[i].errorInfo.type)) {
           /* TODO: how to visualize this specific entry as an error while not breaking more?
@@ -47102,37 +47139,22 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
                much a WIP and likely also broken.
           */
 
-          var columnObj = ast.groupby[i];
-          var column = columnObj.column;
-          var table = getTable(column, schema, tables)[0];
-
-          /* TODO: error here + commented code below.
-             This _might_ not be the right solution... and it crashes, too.
-          */
-          // TypeError: selection[table][column] is undefined
-          // selection[table][column].errorInfo = columnObj.errorInfo;
-
-          /* This down here highlights the entire node & makes the table red,
-             which is not what I want.
-          */
+          // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
+          var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
+          
           // Find a corresponding node and add the error to it
-          // var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
-          // if (actualNode) {
-          //   actualNode.errorInfo = columnObj.errorInfo;
-          //   actualNode.isHighlighted = true;
-          //   actualNode.isExpanded = true;
-          // }
+          console.warn('GROUP BY error being visualized, but method how should perhaps be different '
+                       + '(without highlighting entire node, show tooltip on column hover.');
+          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          if (actualNode) {
+            actualNode.errorInfo = columnObj.errorInfo;
+            actualNode.isHighlighted = true;
+            actualNode.isExpanded = true;
+          }
 
-          console.warn('Visualizable GROUP BY error, but without an actual way to visualize it atm.');
+          // Also add the error to the selection, to include in the shown tables
+          selection[table][column].errorInfo = columnObj.errorInfo;
 
-          aggregation = `GROUP (${parseInt(i)+1})`;
-
-          selection = addSelection(selection, aggregation, table, column, aliases);
-          setSelections(selection);
-
-          console.warn('This error should be visualizable, but I have not figured out how yet. This is probably not right. Some items:\n'
-                       + 'actualNode /w error is ' + actualNode + '\n'
-                       + 'Selections now = ' + selection);
         } else {
           // Find a corresponding node and add the error to it
           var columnObj = ast.groupby[i];
@@ -47148,14 +47170,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
             levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
           }
         }
-      } else {
-        var column = ast.groupby[i].column;
-        var table = getTable(column, schema, tables)[0];
-
-        aggregation = `GROUP (${parseInt(i)+1})`;
-
-        selection = addSelection(selection, aggregation, table, column, aliases);
-        setSelections(selection);
       }
     }
   }
