@@ -45019,25 +45019,20 @@ function keywordToASTName(keyword) {
 
 
 function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
-  /* ===== IMPORTANT NOTE =====
-     
-     This function is entirely untested!
-
-     ========================== */
-
   // These elements won't always all exist on a keyword, but if they exist
   //   they can/should be visited.
-  const visitableObjects = ['left', 'right', 'args', 'expr'];
+  const visitableObjects = ['left', 'right', 'args', 'expr', 'stmt'];
   const visitableLists = ['columns', 'from', 'value'];
   const visitableElements = [...visitableObjects];
   visitableElements.push(...visitableLists);
+  console.log('Start of DFS. AST: ', ast);
 
   if (ast.type === 'select') {
     // This is a subquery root!
     foundNumber++;
-    // console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
-    //             + ' found in AST, sub-tree located is:\n'
-    //             + util.inspect(ast, false, 3, true));
+    console.log('Subquery root located! SELECT number ' + foundNumber + ' of goal of ' + targetNumber
+                + ' found in AST, sub-tree located is:\n', ast);
+                // + util.inspect(ast, false, 3, true));
     return {'ast': ast, 'foundNumber': foundNumber};
   } else {
     // Not a subquery root (yet). Keep going.
@@ -45046,7 +45041,7 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
       for (let visitableItemIndex in ast) {
         let visitedObject = ASTSubqueryDFS(ast[visitableItemIndex], targetNumber, foundNumber);
         if (visitedObject.foundNumber > foundNumber) {
-          // console.log('Visited object in list was a subquery root.');
+          console.log('Visited object in list was a subquery root.');
           // A new subquery root was found.
           foundNumber++;
           if (foundNumber === targetNumber) {
@@ -45076,9 +45071,14 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
             }
           }
         } else if (visitableLists.includes(element)) {
-          // console.log('List containing visitable items located with name: ' + element);
+          console.log('List containing visitable items located with name: ' + element);
           for (let visitableItemIndex in ast[element]) {
             let visitableItem = ast[element][visitableItemIndex];
+            if (element === 'with') {
+              // WITH statements are rather unique in their construction. It's not
+              //   unlikely that this might affect/break something else within WITHs.
+              visitableItem = visitableItem['stmt'];
+            }
             let visitedObject = ASTSubqueryDFS(visitableItem, targetNumber, foundNumber);
             if (visitedObject.foundNumber > foundNumber) {
               // console.log('Visited object in list was a subquery root.');
@@ -45107,14 +45107,16 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
 
 function findNamedSubquery(ast, subqueryLocationTrace) {
   // TODO: Optimize this implementation.
-  // console.log('findNamedSubquery for the following AST & trace.\n'
-  //             + 'AST: ' + util.inspect(ast, false, 3, true) + '\n'
-  //             + 'LocationTrace: [' + subqueryLocationTrace + ']');
+  console.log('findNamedSubquery for the following AST & trace.\n'
+              // + 'AST: ' + util.inspect(ast, false, 3, true) + '\n'
+              + 'AST: ', ast, '\n'
+              // + 'LocationTrace: [' + subqueryLocationTrace + ']');
+              + 'LocationTrace:', subqueryLocationTrace);
 
   for (let i = 0; i < subqueryLocationTrace.length; i++) {
     let traceItem = subqueryLocationTrace[i];
-    // console.log('Now going into location trace item ' + i + ': '
-    //             + traceItem);
+    console.log('Now going into location trace item ' + i + ': '
+                + traceItem);
     if (ast.type !== 'select') {
       throw Error('Subquery root selected after trace step ' + i-1
                   + 'was not actually a subquery root. Stopping.\n'
@@ -45127,8 +45129,8 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
       continue;
     } else {
       // Either we need to dive deeper into the AST, or... something.
-      // console.log('Attempting to find subquery for trace keyword ' + traceItem
-      //             + ' within AST component.');
+      console.log('Attempting to find subquery for trace keyword ' + traceItem
+                  + ' within AST component.');
       ast = ast[keywordToASTName(traceItem)];
       
       if (typeof subqueryLocationTrace[Number(i)+1] === 'number') {
@@ -45144,13 +45146,13 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
         //   to find the first subquery in the keyword.
         ast = ASTSubqueryDFS(ast).ast;
       }
-      // console.log('AST component found via ASTSubqueryDFS:\n'
-      //             + util.inspect(ast, false, 3, true));
+      console.log('AST component found via ASTSubqueryDFS:\n', ast);
+                  // + util.inspect(ast, false, 3, true));
     }
   }
 
   // console.log('Returning from ASTSubqueryDFS:\n'
-  //                 + util.inspect(astSearchResult, false, 3, true));
+                  // + util.inspect(astSearchResult, false, 3, true));
   return ast;
 }
 
@@ -45381,6 +45383,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
                          + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
           errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
           newErrorInfo = makeGroupAggErrorInfo('Early keyword', errorMessage, errorTitle);
+          console.warn('Shit is breaking oh no', newErrorInfo, subqueryRoot);
           insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
           // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
           //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
@@ -45414,8 +45417,8 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
         //   repeated anything else was not handled earlier and so cannot be
         //   parsed (so we wouldn't have made it here in the first place)
       }
-      console.log(subqueryRoot);
-      console.log(newErrorInfo);
+      // console.log(subqueryRoot);
+      // console.log(newErrorInfo);
     }
   }
   // console.log(util.inspect(ast, false, null, true));
@@ -45806,7 +45809,7 @@ function drawGraph(vertices, links, container, d3, schema) {
           class: 'errorEdgePath',
           arrowhead: 'undirected',
           labelpos: 'c'}, i);
-      if (link.errorInfo.type == 'table_ref_invalid_column') {
+      if (link.errorInfo.type === 'table_ref_invalid_column') {
         // We want to expand the node of that table to clarify which attributes can be used
         var iToHighlight = vertices.findIndex(v => v.alias == link.errorInfo.ref.table);
         if (iToHighlight != -1) {
@@ -46073,6 +46076,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
   }
 }
 
+
 function highlightNodes(graph, svg) {
   // Highlight the node if needed
   svg.selectAll('g.node')
@@ -46084,6 +46088,7 @@ function highlightNodes(graph, svg) {
     .select("rect")
     .style("stroke", "rgb(239, 52, 52)");
 }
+
 
 function addSelection(selection, aggregation, table, column, aliases) {
   // Check if there is an alias for this table
@@ -46765,6 +46770,7 @@ function underlineArr(arrayOfStrings) {
 function appendMultiErrorInfo(appendTo, origin, maxErrors=5) {
   // It is possible for the table we are copying the errors from to have had
   //   multiple errorInfo items.
+  // TODO: current implementation overwrites appendTo's errorInfo if exists.
   for (let i = 0; i < maxErrors; i++) {
 
     let newName = i > 0 ? 'errorInfo' + i : 'errorInfo';
@@ -46827,7 +46833,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
     /* TODO: check for GROUP_BY_ like syntax in column names, 
        fix if present (.mistakes already carries the info).
-       UPDATE: shouldn't this be done much earlier?
+       UPDATE: shouldn't that be done much earlier?
     */
 
     // Using !=, not !==, because for loop index is a string and not a number
@@ -46869,7 +46875,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       var [subNodes, subLinks] = generateGraphTopLevel(element, tableObject.expr, aliases, schema, level+1, tableObject.as);
       if (tableObject.expr.errorInfo) {
         // Subquery has an error, mark the level as erroneous to highlight it.
-        /* TODO: error prop untested */
+        /* TODO: error prop untested (and atm also disabled) */
         let subqueryError = {
           name: tableObject.as,
           level: level+1
@@ -46914,13 +46920,13 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       if (typeof ast.columns[index]['expr'] !== 'undefined') {
         columnObj.errorInfo = repeatSelectError;
       } else {
-        console.log('I have no idea what to do here, but it should be something.\n'
-                    + 'columnObj === ' + columnObj + ', but how to work with that?');
+        console.warn('I don\'t know yet what to do here, but it should be something.\n'
+                    + 'columnObj === ', columnObj, ', but how to work with that?');
       }
     }
 
     if (columnObj == '*' && level == 0) {
-      /* TODO: this appears to contain a bug!
+      /* FIXME: this appears to contain a bug (description below)!
          SELECT * on multiple tables does not mark all tables
          (but SQLite does return cart. prod. results). Likely
          caused by the specific from[0] here, instead of all tables.
@@ -46944,10 +46950,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           selection[tableA] = {[column]: ['']};
         }
       }
-
-      /* TODO: previously there was no way this could go wrong, now there is.
-         Need to add an errorInfo implementation here.
-      */
 
     // If there is no star and the select is a simple column reference, add it to the list of selections.
     } else if (columnObj['type'] == 'column_ref' && level == 0) {
@@ -46978,8 +46980,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
           // Create a missing table reference node
           var id = (columnObj.table || columnObj.as) + columnObj.errorInfo.type;
-          /* TODO: NOTE TO SELF: This is how to create an
-               already expanded node! :D */
           nodes.push({
             'id': id,
             'parent': parent,
@@ -47087,6 +47087,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   if (ast.groupby != null) {
     const visualizableErrors = ['Early keyword', 'Late keyword'];
     for (var i in ast.groupby) {
+      console.warn('?????????????????');
       // Most errors break the GROUP BY, but early/late keywords should be
       //   visualized as if functional but marked with an error.
       /* TODO / Known issue: GROUP BY marks entire table and loses GROUP(n) on column itself.
@@ -47216,6 +47217,7 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     if (ast.errorInfo) {
       // There was errorInfo put on the root of this WHERE. Propagating it into
       //   each side of the predicate gets it picked up in the processing.
+      // TODO: just insert it there in the first place
       insertErrorInfo(ast.left, ast.errorInfo);
       insertErrorInfo(ast.right, ast.errorInfo);
     }
@@ -47342,7 +47344,7 @@ function generateHavingExpression(element, ast, aliases, schema, level, parent, 
     insertErrorInfo(ast.right, ast.errorInfo);
   }
 
-  console.warn('Generating HAVING expression is not fully functional at the moment.');
+  console.warn('Generating HAVING expression is disabled at the moment.');
 
   // if (ast.type === 'binary_expr') {
   //   // Either one of the two sides has to be an aggregation function, or there

@@ -76,7 +76,9 @@ svg .node text {
 	background-color: rgba(255, 160, 0, 0.2);
 }
 
-.output_subarea .node td.selection, .node th.erroredSelection {
+/* Pacmega: commented the first part of this, because this somehow
+     caused every single selection to become marked as an error. */
+/*.output_subarea .node td.selection, .node th*/.erroredSelection {
 	border-left: 2px solid rgb(255, 0, 0);
 	border-right: 2px solid rgb(255, 0, 0);
 	background-color: rgba(255, 0, 0, 0.2);
