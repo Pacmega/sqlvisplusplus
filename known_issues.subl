@@ -1,0 +1,14 @@
+SQLVis++ implementation specific issues
+
+High priority:
+- "keyword late" detection in general currently doesn't work. Unit tests exist for this but do not cover it successfully, suggesting issues in the detection or before that point.
+
+
+Likely won't fix for now:
+- Column/table names including any keyword, e.g. 'somewhere' or 'selectedUsers' trigger keyword detection because they contain a keyword in the name.
+
+
+SQLVis issues:
+
+- SELECT * on multiple tables does not mark all tables (but SQLite does return cart. prod. results).
+  Likely cause: within generateGraphTopLevel, during the iteration over ast.columns, if columnObj == '*' a selection is made where table = ast.from[0]['table']. Because of this, only the table that happens to be first in the AST is highlighted instead of all relevant tables.

@@ -1,0 +1,12 @@
+Visualization focus TODO:
+- HAVING is not implemented at all! Need to fix this, I need this for:
+  -> HAVING ordering errors
+  -> WHERE with aggregation errors
+- GROUP BY errors are not being shown as errors
+
+- WITH late: should highlight level, does nothing now (both not implemented and also see "keyword late" bug)
+- SELECT late: should highlight all columns in the SELECT, does not do that now (both not implemented and also see "keyword late" bug)
+
+
+AST analysis TODO:
+- Detect insufficient aggregation (check spreadsheet, not in GitHub)
