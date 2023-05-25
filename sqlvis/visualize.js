@@ -47204,12 +47204,12 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
      same visual result for now, but should change. That shouldn't really be
      the case in the final version.
   */
-  // if (ast.having != null) {
-  //   var [subNodes, subLinks] = generateHavingExpression(
-  //     element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level);
-  //   nodes = nodes.concat(subNodes);
-  //   links = links.concat(subLinks);
-  // }
+  if (ast.having != null) {
+    var [subNodes, subLinks] = generateGraphExpression(
+      element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level);
+    nodes = nodes.concat(subNodes);
+    links = links.concat(subLinks);
+  }
 
   return [nodes, links];
 }
@@ -47227,7 +47227,7 @@ function modifyNode(nodes, instance) {
 function generateGraphExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel) {
   if (ast.type == 'binary_expr') {
     /* I have messed with this function a bit, unsure how much it affects. */
-
+    
     if (ast.errorInfo) {
       // There was errorInfo put on the root of this WHERE. Propagating it into
       //   each side of the predicate gets it picked up in the processing.
@@ -47236,23 +47236,20 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
       insertErrorInfo(ast.right, ast.errorInfo);
     }
 
-    // Special case: equality predicate
-    if (ast.left.type == 'column_ref' && ast.right.type != 'select' && ast.right.type != 'expr_list') {
-      var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
-      return [linksAndNodes.nodes, linksAndNodes.links];
-    } else if (ast.left.type == 'column_ref' && ast.right.type == 'select') {
-      //something left
-      // No link needs to be generated as it is not possible to connect an edge to a container.
+    if (ast.left.type === 'column_ref') {
+      if (ast.right.type === 'select') {
+        //something left
+        // No link needs to be generated as it is not possible to connect an edge to a container.
 
-      //something right
-      var [rNodes, rLinks] = generateGraphTopLevel(
-        element,
-        ast.right,
-        aliases, schema,
-        level + 1, level);
+        //something right
+        var [rNodes, rLinks] = generateGraphTopLevel(
+          element,
+          ast.right,
+          aliases, schema,
+          level + 1, level);
 
-      return [rNodes, rLinks];
-    } else if (ast.left.type == 'column_ref' && ast.right.type == 'expr_list') {   
+        return [rNodes, rLinks];
+      } else if (ast.right.type === 'expr_list') {   
         var nodes = [];
         var links = [];
 
@@ -47291,6 +47288,74 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
         links = links.concat(link);
 
         return [nodes, links];
+      } else {
+        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
+        return [linksAndNodes.nodes, linksAndNodes.links];
+      }
+    }
+    else if (ast.left.type === 'aggr_func') {
+      if (ast.right.type == 'select') {
+        console.warn('HAVING with subquery on the right. Not sure if handled correctly.');
+        //something left
+        // No link needs to be generated as it is not possible to connect an edge to a container.
+
+        //something right
+        var [rNodes, rLinks] = generateGraphTopLevel(
+          element,
+          ast.right,
+          aliases, schema,
+          level + 1, level);
+
+        return [rNodes, rLinks];
+      } else if (ast.right.type === 'expr_list') {
+        console.warn('HAVING with expr_list on the right. Not remembering how to trigger atm...');
+        var nodes = [];
+        var links = [];
+
+        for (var i in ast.right.value) {
+          var [rNodes, rLinks] = generateGraphTopLevel(
+            element,
+            ast.right.value[i],
+            aliases, schema,
+            level + 1, ast.operator
+          );
+
+          nodes = nodes.concat(rNodes);
+          links = links.concat(rLinks);
+        }
+        
+        //Add the link for where x not in y
+        var column = ast.left.column;
+        var table = ast.left.table || getTable(column, schema, tables)[0];
+
+        // Check if there is an alias for this table
+        for (var alias in aliases) {
+          if (aliases[alias] == table) {
+            var tableA = alias;
+          }
+        }
+
+        var operator = ast.operator;
+        var link = {};
+        link.sourceAlias = tableA || table;
+        link.source = tableA || table;
+        link.targetAlias = operator;
+        link.target = operator;
+        link.label = [column + ' ' + operator];
+        link.type = 'link';
+
+        links = links.concat(link);
+
+        return [nodes, links];
+      } else {
+        /* TODO: make a different getLinks variant probably. Check console.warn. */
+        console.warn('HAVING with what appears to be a normal expression on the right. '
+                     + 'Currently using getLinks to make a visualization, but this now incorrectly '
+                     + 'creates a null.undefined [operator] and then the right side of the HAVING. '
+                     + 'This results in a non-functional visualization component.');
+        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
+        return [linksAndNodes.nodes, linksAndNodes.links];
+      }
     }
 
     var [lNodes, lLinks] = generateGraphExpression(
@@ -47314,8 +47379,19 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
       insertErrorInfo(ast.expr, ast.errorInfo);
     }
     return generateGraphUnaryExpression(element, ast, aliases, schema, level+1, level);
+  } else if (ast.type === 'aggr_func') {
+    console.log('Now visiting the inside of a HAVING statement (should be the left side). '
+                + 'AST here is: ', ast);
   } else {
-    alert("Something might be wrong with your where clause, please check your query.");
+    /* TODO: This is the part where my HAVING interpretation comes in. This 
+         function is now also called for HAVING statements, but if an aggr_func
+         is involved we land here now. Need to interpret. If possible, split
+         things from the if parts above this into different functions so calling
+         them again can be a lot more efficient.
+    */
+    alert("Something might be wrong with your WHERE and/or HAVING clauses, "
+          + "please check your query.");
+    console.warn('Git commit unalive (TODO: rm this log).', ast);
     throw Error('Unknown where type: ' + ast.type);
   }
 }
