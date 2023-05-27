@@ -5,6 +5,7 @@ High priority:
 
 
 Likely won't fix for now:
+- Scoping/referencing errors are not detected or visualized in HAVING.
 - Column/table names including any keyword, e.g. 'somewhere' or 'selectedUsers' trigger keyword detection because they contain a keyword in the name.
 
 

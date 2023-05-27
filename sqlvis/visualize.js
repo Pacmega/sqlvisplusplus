@@ -46031,7 +46031,6 @@ function expand(node, id, d3, showAlertsOnFail = true) {
       .append('th')
       .text(d => d)
       .attr('class', function(d) {
-        console.log('Column: ' + d);
         var classes = [];
         if (cons[label] && cons[label][d]) {
           let [consHaving, consWhere] = separateConditions(cons[label][d]);
@@ -46067,7 +46066,6 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           }
         }
 
-        // TODO: @Pacmega: when adding HAVING, should add handling here too
         return classes.join(' ');
       });
 
@@ -46107,8 +46105,6 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           }
         }
 
-        // TODO: @Pacmega: when adding HAVING, should add handling here too
-
         return classes.join(' ');
       })
       .html(d => {
@@ -46132,8 +46128,6 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         if (selects[label] && selects[label][d]) {
           return '<div>' + selects[label][d].join('<br>') + '&nbsp</div>';
         }
-
-        // TODO: @Pacmega: when adding HAVING, should add handling here too
 
         return '&nbsp';
       });
@@ -47348,7 +47342,8 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     }
     else if (ast.left.type === 'aggr_func') {
       if (ast.right.type == 'select') {
-        console.warn('HAVING with subquery on the right. Not sure if handled correctly.');
+        console.warn('HAVING with subquery on the right. Not sure how to trigger this, bc subqueries are not this? '
+                     + 'Current handling is likely to be incorrect, it is a copy paste of the WHERE approach.');
         //something left
         // No link needs to be generated as it is not possible to connect an edge to a container.
 
@@ -47361,7 +47356,7 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
 
         return [rNodes, rLinks];
       } else if (ast.right.type === 'expr_list') {
-        console.warn('HAVING with expr_list on the right. Not remembering how to trigger atm...');
+        console.warn('HAVING with expr_list on the right, meaning a subquery.');
         var nodes = [];
         var links = [];
 
@@ -47401,11 +47396,6 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
 
         return [nodes, links];
       } else {
-        /* TODO: make a different getLinks variant probably. Check console.warn. */
-        console.warn('HAVING with what appears to be a normal expression on the right. '
-                     + 'Currently using getLinks to make a visualization, but this now incorrectly '
-                     + 'creates a null.undefined [operator] and then the right side of the HAVING. '
-                     + 'This results in a non-functional visualization component.');
         var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
         return [linksAndNodes.nodes, linksAndNodes.links];
       }
