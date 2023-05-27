@@ -45563,7 +45563,7 @@ function mergeLinks(links) {
 * A function to remove most of the unneccessary data, changing it into a more easily processable object.
 *
 * @param cons     The conditions in an array of objects with many keys and values.
-* @returns result   An array of the shape [{table: {condition: value}}]
+* @returns result   An array of the shape [{table: {condition: {value, type}}]
 */
 function processConditions(cons, nodes) {
   var result = {};
@@ -45573,8 +45573,10 @@ function processConditions(cons, nodes) {
     var table = cons[con].sourceAlias;
     var column = cons[con].column;
     var value = cons[con].value;
+    let type = cons[con].type
 
     object[column] = value;
+    object.type = type;
 
     // Condition errors are propagated to nodes instead
     if (cons[con].error && cons[con].errorInfo.type == 'table_ref_invalid_alias') {
@@ -45602,14 +45604,17 @@ function processConditions(cons, nodes) {
     for (var i=0; i< result[table].length; i++) {
       var key = Object.keys(result[table][i])[0];
       var value = result[table][i][key];
+      let type = result[table][i]['type'];
 
       if (key in newObj){
-        newObj[key].push(value);
+        newObj[key].push({'value': value, 'type': type});
       } else {
-        newObj[key] = [value];
+        newObj[key] = [{'value': value, 'type': type}];
       }
 
       // Propagate the error to the new object as well
+      // TODO: if there are multiple errors in objects, this only stores one.
+      //   this is also what causes the "only shows a single error" situation.
       if (result[table][i].errorInfo) {
         newObj.errorInfo = result[table][i].errorInfo;
       }
@@ -45977,6 +45982,21 @@ function collapse(node, id) {
   node.isExpanded = false;
 }
 
+function separateConditions(columnCons) {
+  let consHaving = [];
+  let consWhere = [];
+  
+  for (let conIndex in columnCons) {
+    if (columnCons[conIndex].type === 'conditionHaving') {
+      consHaving.push(columnCons[conIndex]);
+    } else {
+      consWhere.push(columnCons[conIndex]);
+    }
+  }
+
+  return [consHaving, consWhere];
+}
+
 function expand(node, id, d3, showAlertsOnFail = true) {
   var dbSchema = getSchemaWithTempValues();
   var clickedTable = node.label.split(' ')[0];
@@ -46011,17 +46031,29 @@ function expand(node, id, d3, showAlertsOnFail = true) {
       .append('th')
       .text(d => d)
       .attr('class', function(d) {
+        console.log('Column: ' + d);
         var classes = [];
         if (cons[label] && cons[label][d]) {
+          let [consHaving, consWhere] = separateConditions(cons[label][d]);
+
+          // TODO: only one central check for "any" error, basically. Causes two
+          //   issues here: you can't both show a HAVING and a WHERE issue, and
+          //   if there is > 1 error anyhow only one is shown.
           if (cons[label].errorInfo) {
-            console.log('Errored condition:', cons[label][d]);
             /* Right now only the selected column is highlighted in red, to highlight condition
                 we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
             */
+            // console.log('(head) - Errored condition:', cons[label][d]);
             classes.push('erroredSelection');
           } else {
-            console.log('Normal condition:', cons[label][d]);
-            classes.push('condition');
+            if (consWhere.length > 0) {
+              // console.log('(head) - WHERE conditions in:', cons[label][d]);
+              classes.push('condition');
+            }
+            if (consHaving.length > 0) {
+              // console.log('(head) - HAVING conditions in:', cons[label][d]);
+              classes.push('conditionHaving');
+            }
           }
         }
         
@@ -46049,13 +46081,21 @@ function expand(node, id, d3, showAlertsOnFail = true) {
       .attr('class', function(d) {
         var classes = [];
         if (cons[label] && cons[label][d]) {
+          let [consHaving, consWhere] = separateConditions(cons[label][d]);
           if (cons[label].errorInfo) {
             /* Right now only the selected column is highlighted in red, to highlight condition
                 we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
             */
             classes.push('erroredSelection');
           } else {
-            classes.push('condition');
+            if (consWhere.length > 0) {
+              // console.log('(body) - WHERE conditions in:', cons[label][d]);
+              classes.push('condition');
+            }
+            if (consHaving.length > 0) {
+              // console.log('(body) - HAVING conditions in:', cons[label][d]);
+              classes.push('conditionHaving');
+            }
           }
         }
 
@@ -46073,7 +46113,20 @@ function expand(node, id, d3, showAlertsOnFail = true) {
       })
       .html(d => {
         if (cons[label] && cons[label][d]) {
-          return '<div>' + cons[label][d].join('<br>') + '&nbsp</div>';
+          let colContents = '<div>';
+          for (let objectIndex in cons[label][d]) {
+            if (typeof cons[label][d][objectIndex].value !== 'undefined') {
+              // WHERE or HAVING condition
+              colContents += cons[label][d][objectIndex].value + '<br>'
+            }
+            else {
+              // Some other condition
+              colContents += cons[label][d][objectIndex] + '<br>';
+            }
+          }
+          // Remove the superfluous final <br> and add the div end
+          colContents = colContents.slice(0, colContents.length-4) + '&nbsp</div>';
+          return colContents;
         }
 
         if (selects[label] && selects[label][d]) {
@@ -47560,8 +47613,17 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
     }
 
     //Left
-    var leftTable = node.left.table;
-    var leftColumn = node.left.column;
+    let leftTable;
+    let leftColumn;
+    if (node.left.type == 'aggr_func') {
+      // Aggregation functions have this info in a different location.
+      leftTable = node.left.args.expr.table;
+      leftColumn = node.left.args.expr.column;
+    }
+    else {
+      leftTable = node.left.table;
+      leftColumn = node.left.column;
+    }
     if (leftTable == null && !addNodeForLeft) {
       leftTable = getTable(leftColumn, schema, tables)[0];
     } else if (addNodeForLeft) {
@@ -47641,12 +47703,24 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
       }
     } else if(node.right.type == 'number' || node.right.type == 'string') {
       // link to self.
-      link['type'] = 'condition';
+      if (node.left.type === 'aggr_func') {
+        // TODO: with this, only HAVING components with aggregation are marked.
+        //   However, HAVING can also have non-agg conditions. There is no
+        //   direct tag to recognize those (propagate such a tag manually?). 
+        link['type'] = 'conditionHaving';
+      }
+      else {
+        link['type'] = 'condition';
+      }
       link['column'] = leftColumn;
-      /* Put back the quotes around the value if the type is string
-          to emphasize that we are referring to a constant
-      */
-      link['value'] = operator + (node.right.type == 'string'? "'" + node.right.value + "'" : node.right.value);
+      
+      // If condition has aggregation, start text with the aggregation type.
+      let value = (node.left.type === 'aggr_func') ? node.left.name + ' ' : '';
+
+      // Put back the quotes around the value if the type is string
+      //   to emphasize that we are referring to a constant.
+      value += operator + (node.right.type == 'string'? "'" + node.right.value + "'" : node.right.value);
+      link['value'] = value;
       link['label'].push(node.right.value + (errored? "</span>" : "" ));
       if (link.errorInfo && link.errorInfo.type == 'table_ref_invalid_column') {
         // The table exists but the column is invalid, reflect that on the actual node
