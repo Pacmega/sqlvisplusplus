@@ -45200,7 +45200,7 @@ function findLastFullBranch(astWhereHaving) {
 }
 
 
-function makeGroupAggErrorInfo(errorType, message, title) {
+function makeErrorInfo(errorType, message, title) {
   let errorInfo = {
     'result': false,
     'type': errorType,
@@ -45485,7 +45485,9 @@ function visualize(query, schema, container, d3) {
   extractAllowedRefs(svg, ast, {}, schema, 0, -1);
   console.log("Augmented AST: ", ast);
   analyzeReferences(svg, ast, {}, schema, 0, -1);
-  console.log("AST with errors: ", ast);
+  console.log("AST with scoping/referencing errors: ", ast);
+  analyzeGroupingAgg(svg, ast, {}, schema, 0, -1);
+  console.log("AST with grouping/aggregation errors: ", ast);
   // Generate the contents of the visualization.
   var [nodes, links] = generateGraphTopLevel(svg, ast, {}, schema, 0, -1);
   console.log("Generated nodes: ", nodes);
@@ -46518,6 +46520,120 @@ function analyzeReferences(element, ast, aliases, schema, level, parent) {
       } else {
         console.warn("Unhandled type: ", selectExpr.type, " in the group by stmt.");
       }
+    }
+  }
+}
+
+function identifySelectCols(astRoot) {
+  if (typeof astRoot.columns === 'undefined') {
+    throw Error('identifySelectCols received an "AST root" that did not have a '
+                + 'SELECT component (.columns): ', astRoot);
+  }
+
+  let selectCols = [];
+  let aggrCols = [];
+
+  for (let colIndex in astRoot.columns) {
+    var selectNode = astRoot.columns[colIndex];
+    var selectExpr = selectNode.expr;
+    if (selectExpr == null && selectNode == "*") {
+      // SELECT *, meaning no aggregation but also no expr component.
+      selectCols.push(selectNode);
+    } else if (selectExpr.type === 'aggr_func') {
+      // This column has aggregation on it.
+      aggrCols.push(selectExpr.args.expr);
+    } else {
+      // Not aggregation, so this should be grouped on (probably).
+      selectCols.push(selectExpr);
+    }
+  }
+
+  return [selectCols, aggrCols];
+}
+
+function indexOfColumnRef(columnRefs, searchColumn) {
+  // Attribute equality checking.
+  for (let colIndex in columnRefs) {
+    // These checks also work for null === null and undef === undef.
+    if (columnRefs[colIndex].type === searchColumn.type &&
+        columnRefs[colIndex].table === searchColumn.table &&
+        columnRefs[colIndex].column === searchColumn.column) {
+      return colIndex;
+    }
+  }
+  return -1;
+}
+
+function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
+  // TODO: this entire thing should be recursive as well, first implementation is root level only
+
+  // TODO: reaffirm that there is no aggregation inside the WHERE? (shouldn't be possible)
+  
+  // TODO: scan for aggregation outside of SELECT & HAVING
+
+  // TODO/FIXME: for insuff. grouping, errors are only visualized if a table
+  //   name is included. Why does this bug occur, and how to fix?
+
+  // TODO: test if insuff. & incorr. grouping work consistently! Also check
+  //   with different orders for where in keyword the error is, because I saw
+  //   that cause some weirdness too.
+
+  let [selectedCols, aggrCols] = identifySelectCols(ast);
+
+  if (ast.groupby) {
+
+    let groupbyCols = [...ast.groupby];
+    
+    let errorTitle = 'Insufficient grouping';
+    let errorMessage = 'This column is part of your selection, but is not grouped on '
+                       + 'or aggregated. This way, the query returns the value from '
+                       + 'one of the groups in a way that may look randomly chosen. '
+                       + 'Consider adding this column to the GROUP BY or removing it.';
+    let errorType = 'insufficientGroup';
+    let insufficientGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
+
+    // For each non-aggregated column, check if it is also included in the GROUP BY.
+    for (let unaggrColIndex in selectedCols) {
+      let unaggrColumn = selectedCols[unaggrColIndex];
+      let atGroupByIndex = indexOfColumnRef(groupbyCols, unaggrColumn);
+      if (atGroupByIndex === -1) {
+        // Column does not appear in GROUP BY, but it (likely) should.
+        insertErrorInfo(unaggrColumn, insufficientGroupingError);
+      }
+      // Note: we cannot and should not delete anything from groupbyCols in an
+      //   attempt to speed up checking, as further selections may still use
+      //   the same column so the GROUP BY entry is still needed.
+    }
+
+    errorTitle = 'Incorrect grouping';
+    errorMessage = 'This column is part of your GROUP BY, but is not included in the SELECT. '
+                   + 'This way, different groups can be created based on an attribute that '
+                   + 'cannot be seen. This makes it unclear which group is which. Consider '
+                   + 'adding this column to your SELECT, or removing it from the GROUP BY.';
+    errorType = 'incorrectGroup';
+    let incorrectGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
+
+    // For each column that is grouped on, check if it is also included in the SELECT.
+    for (let groupColIndex in groupbyCols) {
+      let groupColumn = groupbyCols[groupColIndex];
+      let atSelectIndex = indexOfColumnRef(selectedCols, groupColumn);
+      if (atSelectIndex === -1) {
+        // Column does not appear in SELECT, but it should.
+        insertErrorInfo(groupColumn, incorrectGroupingError);
+      }
+    }
+  } else if (aggrCols.length > 0 && selectedCols.length !== 0) {
+    let errorTitle = 'Insufficient aggregation';
+    let insufficientAggrMsg = 'There appears to be no grouping in (this part of) your query. '
+                              + 'If there is no grouping, either all or none of the columns '
+                              + ' should be aggregated because only aggregating on part of the '
+                              + 'columns can result in confusing output.';
+    let errorType = 'insufficientAgg';
+    
+    // TODO: is this errorInfo being inserted in the right place?
+    let errorInfo = makeErrorInfo(errorType, insufficientAggrMsg, errorTitle);
+    for (let unaggrColIndex in selectedCols) {
+      insertErrorInfo(selectedCols[unaggrColIndex], errorInfo);
     }
   }
 }
@@ -47959,7 +48075,7 @@ define('viz', ['d3'], function (d3) {
 
     query = queryTextAdjustments(query);
 
-    visualize(query, schema, container, d3)
+    visualize(query, schema, container, d3);
 
     //Jupyter.notebook.kernel.execute('print("This query is not valid")')
   };
