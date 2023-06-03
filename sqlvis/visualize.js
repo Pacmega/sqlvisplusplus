@@ -45336,7 +45336,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           //                + 'HAVING because of either the placement of this part of '
           //                + 'your query or the use of aggregation in it.';
           // errorTitle = 'WHERE should be HAVING';
-          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
           // console.log('V2    - WHERE->HAVING');
 
@@ -45348,7 +45348,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
                          + 'AND. You should only use WHERE once per query, all '
                          + 'further conditions should be AND.';
           errorTitle = 'WHERE should be AND';
-          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
           // console.log('V2    - WHERE->AND');
 
@@ -45364,7 +45364,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           errorMessage = 'GROUP BY is meant to be used as a keyword like e.g. SELECT '
                          + 'and FROM, and should not be within any keyword/function.';
           errorTitle = 'Incorrect usage of GROUP BY';
-          newErrorInfo = makeGroupAggErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
           // console.log('V1    - WHERE->AND');
 
@@ -45382,7 +45382,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
                          + 'than it is supposed to. It is meant to be used after the keyword '
                          + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
           errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
-          newErrorInfo = makeGroupAggErrorInfo('Early keyword', errorMessage, errorTitle);
+          newErrorInfo = makeErrorInfo('Early keyword', errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
           // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
           //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
@@ -45398,11 +45398,12 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           // TODO: Unsure if this code & message are fully correct
           // TODO: Code coverage shows this if branch is not covered!
           //   ^ This hints toward a likely issue earlier on with detecting biggest errors.
+          console.warn('LATE keyword detected successfully \\o/')
           errorMessage = 'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared later '
                          + 'than it is supposed to. It is meant to be used before the keyword '
                          + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
           errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
-          newErrorInfo = makeGroupAggErrorInfo('Late keyword', errorMessage, errorTitle);
+          newErrorInfo = makeErrorInfo('Late keyword', errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
 
           // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
@@ -46579,24 +46580,27 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
   //   that cause some weirdness too.
 
   let [selectedCols, aggrCols] = identifySelectCols(ast);
+  console.log('selectedCols:', selectedCols);
+  console.log('aggrCols:', aggrCols);
 
   if (ast.groupby) {
 
     let groupbyCols = [...ast.groupby];
     
     let errorTitle = 'Insufficient grouping';
-    let errorMessage = 'This column is part of your selection, but is not grouped on '
-                       + 'or aggregated. This way, the query returns the value from '
-                       + 'one of the groups in a way that may look randomly chosen. '
-                       + 'Consider adding this column to the GROUP BY or removing it.';
     let errorType = 'insufficientGroup';
-    let insufficientGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
-
     // For each non-aggregated column, check if it is also included in the GROUP BY.
     for (let unaggrColIndex in selectedCols) {
       let unaggrColumn = selectedCols[unaggrColIndex];
       let atGroupByIndex = indexOfColumnRef(groupbyCols, unaggrColumn);
       if (atGroupByIndex === -1) {
+        let colName = unaggrColumn.table ? unaggrColumn.table + '.' + unaggrColumn.column
+                                         : unaggrColumn.column;
+        let errorMessage = colName + ' is part of your selection, but is not grouped on '
+                           + 'or aggregated. This way, the query returns the value from '
+                           + 'one of the groups in a way that may look randomly chosen. '
+                           + 'Consider adding this column to the GROUP BY or removing it.';
+        let insufficientGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
         // Column does not appear in GROUP BY, but it (likely) should.
         insertErrorInfo(unaggrColumn, insufficientGroupingError);
       }
@@ -46606,18 +46610,19 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
     }
 
     errorTitle = 'Incorrect grouping';
-    errorMessage = 'This column is part of your GROUP BY, but is not included in the SELECT. '
-                   + 'This way, different groups can be created based on an attribute that '
-                   + 'cannot be seen. This makes it unclear which group is which. Consider '
-                   + 'adding this column to your SELECT, or removing it from the GROUP BY.';
     errorType = 'incorrectGroup';
-    let incorrectGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
-
     // For each column that is grouped on, check if it is also included in the SELECT.
     for (let groupColIndex in groupbyCols) {
       let groupColumn = groupbyCols[groupColIndex];
       let atSelectIndex = indexOfColumnRef(selectedCols, groupColumn);
       if (atSelectIndex === -1) {
+        let colName = groupColumn.table ? groupColumn.table + '.' + groupColumn.column
+                                        : groupColumn.column;
+        let errorMessage = colName + ' is part of your GROUP BY, but is not included in the SELECT. '
+                   + 'This way, different groups can be created based on an attribute that '
+                   + 'cannot be seen. This makes it unclear which group is which. Consider '
+                   + 'adding this column to your SELECT, or removing it from the GROUP BY.';
+        let incorrectGroupingError = makeErrorInfo(errorType, errorMessage, errorTitle);
         // Column does not appear in SELECT, but it should.
         insertErrorInfo(groupColumn, incorrectGroupingError);
       }
@@ -47152,9 +47157,14 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         }
       }
 
+      console.log('Column obj under investigation:', columnObj);
+
       if (table in selection) {
+        // We previously already saw a column in this table being selected.
+        // Also include a selection for this new column.
         selection[table][column] = [''];
 
+        console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
           var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
           if (actualNode) {
@@ -47165,6 +47175,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         }
       } else {
         selection[table] = {[column]: ['']};
+        console.log('First selection column added in ' + table, selection);
         // Maybe selection also contains an error
         if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
           // Create a missing table reference node
@@ -47208,6 +47219,20 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         } else if (columnObj.errorInfo && columnObj.errorInfo.type == "with_ref_invalid_column") {
           // WITH clauses are visualized by levels so we highlight the whole level
           levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
+        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "insufficientAgg") {
+          // There is no GROUP BY, but there should be. Mark the column and table.
+          selection[table][column].errorInfo = columnObj.errorInfo;
+
+          // Find a corresponding node and add the error to it
+          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          if (actualNode) {
+            actualNode.errorInfo = columnObj.errorInfo;
+            actualNode.isHighlighted = true;
+            actualNode.isExpanded = true;
+          } else {
+            // No node found, it might be a level, so we add error to the level
+            levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
+          }
         }
       }
     // If there is no star and this element is a SQL aggregation, add it to the list of aggregations.
@@ -47647,11 +47672,12 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
     if (node.left.errorInfo || node.right.errorInfo) {
       errored = true;
       link.error = true;
-      // Currently only propagating error from the left or right node, not both at the same time
+      // Currently only using the first error, not multiple at the same time
       link.errorInfo = node.left.errorInfo ? node.left.errorInfo : node.right.errorInfo;
 
       var supportedTypes = ["ambiguous_column_ref", "ambiguous_column_ref_same_aliases", "invalid_table_ref"];
-      addNodeForLeft = node.left.errorInfo && supportedTypes.indexOf(node.left.errorInfo.type) !== -1; // -1 not found, any other number refers to index found in the array
+      // -1 not found, any other number refers to index found in the array
+      addNodeForLeft = node.left.errorInfo && supportedTypes.indexOf(node.left.errorInfo.type) !== -1;
       addNodeForRight = node.right.errorInfo && supportedTypes.indexOf(node.right.errorInfo.type) !== -1;
 
       if (addNodeForLeft && addNodeForRight) {
