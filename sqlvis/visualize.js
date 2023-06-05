@@ -43978,7 +43978,7 @@ function addKeywordEndings(keywordStatus, totalQueryLength) {
       unclosedBracketIndices.push(ongoingBrackets[index][1]);
     }
     
-    throw Error('Unclosed bracket (-s) in query at character indices:'
+    throw Error('Unclosed bracket (-s) in query at character indices: '
                 + unclosedBracketIndices);
   }
 
@@ -45509,6 +45509,9 @@ function visualize(query, schema, container, d3) {
     if (realLinks.length > 1) {
       var realLinks = mergeLinks(realLinks);
     }
+    // console.log('Conditions just before vis gen: ', getConditions());
+    // console.log('Selections just before vis gen: ', getSelections());
+
     drawGraph(nodes, realLinks, container, d3, schema);
   }
 }
@@ -46038,9 +46041,10 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         if (cons[label] && cons[label][d]) {
           let [consHaving, consWhere] = separateConditions(cons[label][d]);
 
-          // TODO: only one central check for "any" error, basically. Causes two
-          //   issues here: you can't both show a HAVING and a WHERE issue, and
-          //   if there is > 1 error anyhow only one is shown.
+          // TODO: this being one errorInfo check means only one central check
+          //   for "any" error, basically. Causes two issues here: you can't
+          //   both show a HAVING and a WHERE issue, and if there is > 1 error
+          //   only one is shown.
           if (cons[label].errorInfo) {
             /* Right now only the selected column is highlighted in red, to highlight condition
                 we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
@@ -46129,7 +46133,30 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         }
 
         if (selects[label] && selects[label][d]) {
-          return '<div>' + selects[label][d].join('<br>') + '&nbsp</div>';
+          let colContents = '<div>';
+          for (let objectIndex in selects[label][d]) {
+            let selectObject = selects[label][d][objectIndex];
+            console.log('SELECT label thing ', selects[label][d][objectIndex]);
+            if (typeof selectObject.value !== 'undefined') {
+              // Only add <br> if there is content, to avoid wrong empty lines.
+              let textToAdd = selectObject.value === '' ? selectObject.value
+                              : selectObject.value + '<br>';
+              colContents += textToAdd;
+            }
+            else {
+              // I don't think this should be possible, but... who knows.
+              console.warn('selects[label][d][' + objectIndex + '] does not follow the object structure somehow', selects[label][d]);
+              colContents += selects[label][d][objectIndex] + '<br>';
+            }
+          }
+
+          // Remove the superfluous final <br> and add the div end
+          if (colContents.slice(colContents.length-4) === '<br>') {
+            colContents = colContents.slice(0, colContents.length-4);
+          }
+          colContents += '&nbsp</div>';
+
+          return colContents;
         }
 
         return '&nbsp';
@@ -46146,7 +46173,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
     // Make sure the node is big enough to hold the table
     // TODO: since size issues occur regularly, maybe adjust?
-    node.width = tableWidth;
+    node.width = 1.1*tableWidth;
     node.height = 1.1*tableHeight;
     node.label += table.outerHTML;
   }
@@ -46177,15 +46204,15 @@ function addSelection(selection, aggregation, table, column, aliases) {
   if (table in selection) {
     if (column in selection[table]) {
       if (selection[table][column] == '') {
-        selection[table][column] = [aggregation];
+        selection[table][column] = [{'value': aggregation}];
       } else {
-        selection[table][column].push(aggregation);
+        selection[table][column].push({'value': aggregation});
       }
     } else {
-      selection[table][column] = [aggregation];
+      selection[table][column] = [{'value': aggregation}];
     }
   } else {
-    var newObj = {[column]: [aggregation]};
+    var newObj = {[column]: [{'value': aggregation}]};
     selection[table] = newObj;
   }
 
@@ -46584,7 +46611,6 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
   console.log('aggrCols:', aggrCols);
 
   if (ast.groupby) {
-
     let groupbyCols = [...ast.groupby];
     
     let errorTitle = 'Insufficient grouping';
@@ -46593,6 +46619,9 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
     for (let unaggrColIndex in selectedCols) {
       let unaggrColumn = selectedCols[unaggrColIndex];
       let atGroupByIndex = indexOfColumnRef(groupbyCols, unaggrColumn);
+      console.log('Checking for insufficient grouping...\n'
+                  + 'Now checking column ' + unaggrColumn + ', which was found in groupbyCols '
+                  + 'at index ' + atGroupByIndex + '.');
       if (atGroupByIndex === -1) {
         let colName = unaggrColumn.table ? unaggrColumn.table + '.' + unaggrColumn.column
                                          : unaggrColumn.column;
@@ -46628,12 +46657,12 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
       }
     }
   } else if (aggrCols.length > 0 && selectedCols.length !== 0) {
-    let errorTitle = 'Insufficient aggregation';
+    let errorTitle = 'Insufficient aggregation or grouping';
     let insufficientAggrMsg = 'There appears to be no grouping in (this part of) your query. '
                               + 'If there is no grouping, either all or none of the columns '
                               + ' should be aggregated because only aggregating on part of the '
                               + 'columns can result in confusing output.';
-    let errorType = 'insufficientAgg';
+    let errorType = 'insufficientAggGroup';
     
     // TODO: is this errorInfo being inserted in the right place?
     let errorInfo = makeErrorInfo(errorType, insufficientAggrMsg, errorTitle);
@@ -47162,7 +47191,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       if (table in selection) {
         // We previously already saw a column in this table being selected.
         // Also include a selection for this new column.
-        selection[table][column] = [''];
+        selection = addSelection(selection, '', table, column, aliases);
+        // selection[table][column] = ['']; // Pac: this was here before
 
         console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
@@ -47174,7 +47204,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           }
         }
       } else {
-        selection[table] = {[column]: ['']};
+        selection = addSelection(selection, '', table, column, aliases)
+        // selection[table] = {[column]: ['']}; // Pac: this was here before
         console.log('First selection column added in ' + table, selection);
         // Maybe selection also contains an error
         if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
@@ -47226,6 +47257,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           // Find a corresponding node and add the error to it
           var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
           if (actualNode) {
+            // TODO: (this applies to multiple locations!) errorInfo on the node
+            //   is used for tooltip generation. That should be moved to columns.
             actualNode.errorInfo = columnObj.errorInfo;
             actualNode.isHighlighted = true;
             actualNode.isExpanded = true;
@@ -47296,7 +47329,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   }
   setSelections(selection);
   
-
   // Find if there is a groupby clause.
   if (ast.groupby != null) {
     const visualizableErrors = ['Early keyword', 'Late keyword'];

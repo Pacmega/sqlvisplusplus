@@ -2,6 +2,9 @@ First priority (bugs in recent additions):
 - Implement recursion for analyzeGroupingAgg, now only works for root level
 - test if insuff. & incorr. grouping work consistently! Also check with different orders for where in keyword the error is, because I saw that cause some weirdness before too.
 - Post insufficient aggregation error in Teams bc lmao whoops
+- Parts of HAVING that do not contain aggregation are incorrectly not tagged as HAVING...
+- And if something in the WHERE has aggregation all of it is marked as erroneous.
+- How to nest HAVING statements within SELECT, like WHERE does?
 
 
 SELECT in incorrect location:
