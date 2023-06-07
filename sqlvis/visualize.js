@@ -44569,7 +44569,11 @@ function fixSingleWrongWhere(keywordsPerLevel, query) {
 
 
 function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
-  // The query is the only thing that is returned, the rest is edited in-place.
+  // TODO: double HAVING detection should perhaps be a thing too.
+
+  // Many things are edited in-place in this function, and not returned.
+  let returnObject = {'query': query,
+                      'directlySubsequentWhere': false};
 
   const aggregateFuncs = ['avg', 'count', 'group_concat', 'max',
                           'min', 'sum', 'total'];
@@ -44578,7 +44582,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
   for (let levelName in keywordsPerLevel) {
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
     let levelMistakes = foundIssues[levelName];
-    let lowercaseQuery = query.toLowerCase(); // query can change, so update.
+    let lowercaseQuery = returnObject.query.toLowerCase(); // returnObject.query can change, so update.
 
     let keywordsInLevel = levelKeywords.map(x => x[0]);
 
@@ -44586,47 +44590,31 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
       let mistake = levelMistakes[mistakeIndex];
       if (mistake.mistakeWord[0] === mistake.detectedAtKeyword[0]
           && mistake.mistakeWord[1][0] === 'where') {
-        // This detected error was a double WHERE. If the second WHERE contains
-        //   aggregation and/or appears behind a GROUP BY, it likely should
-        //   have been having instead.
+        // This detected error was a double WHERE. If the second WHERE appears
+        //   behind a GROUP BY, it likely should have been having instead.
+        // TODO: currently also still proccing on "contains agg", rm that.
+        // NOTE: also, yes I already disabled that for single WHERE.
         let secondWhereStart = mistake.detectedAtKeyword[1][1];
         let secondWhereEnd = mistake.detectedAtKeyword[1][2];
-        let secondWhereSlice = query.slice(secondWhereStart, secondWhereEnd + 1);
-        let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart,
-                                                         secondWhereEnd);
-        lowerSecondWhereSlice = removeTextBetweenBrackets(lowerSecondWhereSlice);
-
-        // Check if there is any aggregation used in the second WHERE. If so,
-        //   it will be turned into a HAVING statement instead.
-        let aggrFuncFound = false;
-        for (let aggrFuncIndex in aggregateFuncs) {
-          if (lowerSecondWhereSlice.includes(aggregateFuncs[aggrFuncIndex])) {
-            aggrFuncFound = true;
-            break;
-          }
-        }
+        let secondWhereSlice = returnObject.query.slice(secondWhereStart, secondWhereEnd + 1);
+        // let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart, secondWhereEnd);
+        // console.log('levelKeywords before starting WHERE check: ', JSON.parse(JSON.stringify(levelKeywords)));
+        // lowerSecondWhereSlice = removeTextBetweenBrackets(lowerSecondWhereSlice);
 
         // Check if a GROUP BY appears before the second WHERE. If so, it will
         //   be turned into a HAVING statement instead.
         let secondWhereIndex = allIndicesOf(keywordsInLevel, 'where')[1];
         let groupByIndex = keywordsInLevel.indexOf('group by');
-        let groupByBefore2ndWhere = false;
-        if(groupByIndex !== -1 && groupByIndex < secondWhereIndex)
-        {
-          groupByBefore2ndWhere = true;
-        }
+        let groupByBefore2ndWhere = (groupByIndex !== -1 && groupByIndex < secondWhereIndex) ? true : false;
 
         // Check if the second detected WHERE comes right after the first one
         //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
-        //   turned into an AND statement instead.
-        let directlySubsequentWhere = 
-          mistake.mistakeWord[1][2] + 1 === secondWhereStart;
+        //   turned into an AND statement instead. If this is detected this
+        //   function needs to be rerun as well, to fix more potential repeats.
+        returnObject.directlySubsequentWhere = (mistake.mistakeWord[1][2] + 1 === secondWhereStart);
 
-        if (aggrFuncFound || groupByBefore2ndWhere) {
+        if (groupByBefore2ndWhere) {
           let whereHavingFix = 'WHERE';
-          if (aggrFuncFound) {
-            whereHavingFix += '_AGG';
-          }
           if (groupByBefore2ndWhere) {
             whereHavingFix += '_LOC';
           }
@@ -44645,14 +44633,14 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             if (secondWhereIndex < havingKeywordIndex) {
               // The second WHERE happened before the HAVING statement. First, 
               //   add the second WHERE to its new location and make it AND.
-              query = stringSplice(query, havingEndLocation + 1, 0, secondWhereSlice);
+              returnObject.query = stringSplice(returnObject.query, havingEndLocation + 1, 0, secondWhereSlice);
 
               let replacementString = ' AND ';
-              query = stringSplice(query, havingEndLocation + 1, whereLength,
+              returnObject.query = stringSplice(returnObject.query, havingEndLocation + 1, whereLength,
                                    replacementString);
 
               // Second, remove the second WHERE from its old location
-              query = stringSplice(query, secondWhereStart, secondWhereLength);
+              returnObject.query = stringSplice(returnObject.query, secondWhereStart, secondWhereLength);
 
               /*
               This change affects the start and end indices of every item
@@ -44671,14 +44659,14 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             else {
               // The HAVING happened before the second WHERE.
               // First, remove the second WHERE from its old location.
-              query = stringSplice(query, secondWhereStart, secondWhereLength);
+              returnObject.query = stringSplice(returnObject.query, secondWhereStart, secondWhereLength);
 
               // Second, re-add the second WHERE and make it AND.
-              query = stringSplice(query, havingEndLocation + 1, 0,
+              returnObject.query = stringSplice(returnObject.query, havingEndLocation + 1, 0,
                                    secondWhereSlice);
 
               let replacementString = ' AND ';
-              query = stringSplice(query, havingEndLocation + 1, whereLength,
+              returnObject.query = stringSplice(returnObject.query, havingEndLocation + 1, whereLength,
                                    replacementString);
 
               // Same reasoning as just above, in the other half of the if.
@@ -44702,13 +44690,15 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             // The second WHERE should be a HAVING, and there does not exist one
             //   already. Change the keyword itself, no need to move anything.
             let replacementString = 'HAVING';
-            query = stringSplice(query, secondWhereStart, whereLength,
+            returnObject.query = stringSplice(returnObject.query, secondWhereStart, whereLength,
                                  replacementString);
 
             // As HAVING has one character more than WHERE, every start & end
             //   index after the start of this now-HAVING must be offset by 1.
+            console.log('levelKeywords before WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
             levelKeywords[secondWhereIndex][0] = 'having';
             levelKeywords[secondWhereIndex][2]++;
+            console.log('levelKeywords after WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
 
             cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
                                           secondWhereIndex + 1, 1);
@@ -44720,11 +44710,11 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           // Update the found mistake to reflect the change.
           mistake.handledBy = whereHavingFix;
 
-        } else if (directlySubsequentWhere) {
+        } else if (returnObject.directlySubsequentWhere) {
           // Make the second where an AND of the first WHERE instead, and fill
           //   the extra space with spaces so all indices after this remain fine.
           let replacementString = ' AND ';
-          query = stringSplice(query, secondWhereStart, whereLength, replacementString);
+          returnObject.query = stringSplice(returnObject.query, secondWhereStart, whereLength, replacementString);
           
           // Handle the WHERE merge and reset keywordsInLevel.
           levelKeywords[secondWhereIndex-1][2] = secondWhereEnd;
@@ -44737,13 +44727,13 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         else {
           // Not sure there exists a way to trigger this, but in case it happens
           //   give a clear error message.
-          throw Error('There is a second WHERE in the query for which we are '
-                      + 'unable to determine how to work around it.');
+          console.warn('There is a second WHERE in the returnObject.query for which we are '
+                       + 'unable to determine how to work around it.');
         }
       }
     }
   }
-  return query;
+  return returnObject;
 }
 
 
@@ -44759,6 +44749,7 @@ function retrieveKeywordIfPresent(keywordArray, keywordToFind) {
 
 
 function forcedReordering(query, keywordsPerLevel) {
+  // TODO: did I already fix this problem? It's been a while, not sure anymore.
   // Problem: the reconstruction just pastes levels together from deep to
   //   shallow, where the shallow levels also include the non-reordered
   //   versions of the deeper ones.
@@ -44827,17 +44818,6 @@ function findGroupByErrorLevels(keywordsPerLevel, improperGroupByData) {
   // Concept: take the mistake's start location from mistakeWord[1][1] and
   //   see what the highest level is it can be placed in, through reverse
   //   sort levels & save first hit.
-  // TODO: Implement this.
-
-  // Return structure must be like foundIssues:
-  // console.log(foundIssues);
-  //   If level present, level has issues.
-  //   level_0_0: [
-  //       { mistakeWord: [expected index, keyword array],
-  //         detectedAtKeyword: [expected index, keyword array] },
-  //       { mistakeWord: ..., detectedAtKeyword: ... },
-  //       ...
-  //   ]
 
   // By sorting in reverse, the deepest levels appear first. That way, the
   //   most precise level is found first.
@@ -44902,6 +44882,8 @@ function attemptOrderingFix(query) {
   //   makes things more complicated.
   // TODO: may need to add the different join types in a way that
   //   just 'join' doesn't trigger on every single one.
+
+  const maxWhereHavingRepeats = 5;
   
   // This is also the order in which the keywords should appear.
   const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
@@ -44956,9 +44938,9 @@ function attemptOrderingFix(query) {
   // }
   // throw Error('nee.');
 
-  returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
-  query = returnObject.query;
-  let singleWhereIssues = returnObject.foundIssues;
+  // returnObject = fixSingleWrongWhere(keywordsPerLevel, query);
+  // query = returnObject.query;
+  // let singleWhereIssues = returnObject.foundIssues;
 
   let foundIssues = findKeywordIssuesPerLevel(keywordsPerLevel);
   // console.log(foundIssues);
@@ -44981,13 +44963,30 @@ function attemptOrderingFix(query) {
     onlyKeepBiggestMistakes(levelMistakes);
   }
 
-  query = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
+  let doubleDetectionDone = false;
+  for (let i = 0; i < maxWhereHavingRepeats; i++) {
+    // TODO: only does double WHERE, but I want double HAVING too
+    returnObject = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
+    doubleDetectionDone = returnObject.directlySubsequentWhere;
+    query = returnObject.query;
+    console.log(query);
+    if (doubleDetectionDone) {
+      break;
+    }
+  }
+  
+  if (!doubleDetectionDone) {
+    console.warn('Likely not all repeats of WHERE/HAVING keywords are solved, resulting in missing '
+                 + 'conditions in the visualization (assuming the visualization even works).');
+  }
 
   // Attempt to actually repair the query.
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
+  console.log(reorganizedQuery);
 
   // Combine the found issues into one larger object.
-  combineLevelIssues(foundIssues, singleWhereIssues);
+  // NOTE: Single WHERE fixing is currently disabled.
+  // combineLevelIssues(foundIssues, singleWhereIssues);
 
   // When improperGroupByData was originally made, there was no concept of
   //   levels yet. Now it is possible to find in which level each mistake was,
@@ -45487,6 +45486,7 @@ function visualize(query, schema, container, d3) {
   console.log("Augmented AST: ", ast);
   analyzeReferences(svg, ast, {}, schema, 0, -1);
   console.log("AST with scoping/referencing errors: ", ast);
+  checkForWhereAgg(svg, ast, {}, schema, 0, -1);
   analyzeGroupingAgg(svg, ast, {}, schema, 0, -1);
   console.log("AST with grouping/aggregation errors: ", ast);
   // Generate the contents of the visualization.
@@ -46173,7 +46173,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
     // Make sure the node is big enough to hold the table
     // TODO: since size issues occur regularly, maybe adjust?
-    node.width = 1.1*tableWidth;
+    node.width = tableWidth;
     node.height = 1.1*tableHeight;
     node.label += table.outerHTML;
   }
@@ -46592,12 +46592,15 @@ function indexOfColumnRef(columnRefs, searchColumn) {
   return -1;
 }
 
+function checkForWrongAgg(element, ast, aliases, schema, level, parent) {
+  console.warn('NotImplementedWarning on checkForWhereAgg');
+  // TODO: check for aggregation inside the WHERE (possible since text-level fixes are now disabled)
+  
+  // TODO: in general, scan for aggregation outside of SELECT & HAVING
+}
+
 function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
   // TODO: this entire thing should be recursive as well, first implementation is root level only
-
-  // TODO: reaffirm that there is no aggregation inside the WHERE? (shouldn't be possible)
-  
-  // TODO: scan for aggregation outside of SELECT & HAVING
 
   // TODO/FIXME: for insuff. grouping, errors are only visualized if a table
   //   name is included. Why does this bug occur, and how to fix?
