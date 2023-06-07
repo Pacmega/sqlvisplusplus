@@ -44984,6 +44984,11 @@ function attemptOrderingFix(query) {
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
   console.log(reorganizedQuery);
 
+  // keywordsPerLevel was updated along the way as needed by forcedReordering,
+  //   but levelTree was not. KeywordStatus was also maintained, so just rerun
+  //   the original function.
+  levelTreeStructure = findKeywordOrderAtEachLevel(keywordStatus).levelTreeStructure;
+
   // Combine the found issues into one larger object.
   // NOTE: Single WHERE fixing is currently disabled.
   // combineLevelIssues(foundIssues, singleWhereIssues);
@@ -44995,8 +45000,6 @@ function attemptOrderingFix(query) {
                                                        improperGroupByData);
   combineLevelIssues(foundIssues, groupByErrorsWithLevels);
 
-  // improperGroupByData has no concept of levels, so it is (currently)
-  //   easier to return and handle in that own format.
   return {'reorganizedQuery': reorganizedQuery,
           'foundIssues': foundIssues,
           'levelTreeStructure': levelTreeStructure};
@@ -45281,14 +45284,13 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
   for (let levelName in foundIssues) {
     // console.log('Subquery found for level ' + levelName + ' based on trace ['
     //             + levelTreeStructure[levelName] + '] is:'
-    //             + util.inspect(subqueryRoot, false, 5, true));
+                // + util.inspect(subqueryRoot, false, 5, true));
 
     for (let issueIndex in foundIssues[levelName]) {
       // TODO: there should be a more efficient way to do this, e.g. saving the
       //   path to the subquery and simply following that again from ast after
       //   every issue to reset to subqueryRoot.
       let subqueryRoot = findNamedSubquery(ast, levelTreeStructure[levelName]);
-      
       let issue = foundIssues[levelName][issueIndex];
       // console.log(issue);
 
@@ -45486,8 +45488,16 @@ function visualize(query, schema, container, d3) {
   console.log("Augmented AST: ", ast);
   analyzeReferences(svg, ast, {}, schema, 0, -1);
   console.log("AST with scoping/referencing errors: ", ast);
-  checkForWhereAgg(svg, ast, {}, schema, 0, -1);
-  analyzeGroupingAgg(svg, ast, {}, schema, 0, -1);
+
+  for (let levelName in parseResults.levelTreeStructure) {
+    // The root level is included in levelTreeStructure and is here
+    //   also considered as a "sublevel" that way.
+    let levelPath = parseResults.levelTreeStructure[levelName];
+    let subAST = findNamedSubquery(ast, levelPath);
+    checkForWrongAgg(svg, subAST, {}, schema, 0, -1);
+    analyzeGroupingAgg(svg, subAST, {}, schema, 0, -1);
+  }
+  
   console.log("AST with grouping/aggregation errors: ", ast);
   // Generate the contents of the visualization.
   var [nodes, links] = generateGraphTopLevel(svg, ast, {}, schema, 0, -1);
@@ -46593,7 +46603,7 @@ function indexOfColumnRef(columnRefs, searchColumn) {
 }
 
 function checkForWrongAgg(element, ast, aliases, schema, level, parent) {
-  console.warn('NotImplementedWarning on checkForWhereAgg');
+  console.warn('NotImplementedWarning on checkForWrongAgg');
   // TODO: check for aggregation inside the WHERE (possible since text-level fixes are now disabled)
   
   // TODO: in general, scan for aggregation outside of SELECT & HAVING
@@ -46608,6 +46618,7 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
   // TODO: test if insuff. & incorr. grouping work consistently! Also check
   //   with different orders for where in keyword the error is, because I saw
   //   that cause some weirdness too.
+
 
   let [selectedCols, aggrCols] = identifySelectCols(ast);
   console.log('selectedCols:', selectedCols);
