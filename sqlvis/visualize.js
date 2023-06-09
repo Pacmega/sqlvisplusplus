@@ -45067,8 +45067,8 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
             if (foundNumber === targetNumber) {
               // This subquery was the target, return it.
               // console.log('Most recent visited object from the list was '
-              //               + 'the target. Returning:\n'
-              //               + util.inspect(visitedObject.ast, false, 3, true));
+              //               + 'the target. Returning:\n', visitedObject.ast);
+                            // + util.inspect(visitedObject.ast, false, 3, true));
               return {'ast': visitedObject.ast, 'foundNumber': foundNumber};
             }
           }
@@ -45088,8 +45088,8 @@ function ASTSubqueryDFS(ast, targetNumber=1, foundNumber=0) {
               foundNumber++;
               if (foundNumber === targetNumber) {
                 // console.log('Most recent visited object from the list was '
-                //             + 'the target. Returning:\n'
-                //             + util.inspect(visitedObject.ast, false, 3, true));
+                //             + 'the target. Returning:\n', visitedObject.ast);
+                            // + util.inspect(visitedObject.ast, false, 3, true));
                 // This subquery was the target, return it.
                 return {'ast': visitedObject.ast, 'foundNumber': foundNumber};
               }
@@ -45494,7 +45494,7 @@ function visualize(query, schema, container, d3) {
     //   also considered as a "sublevel" that way.
     let levelPath = parseResults.levelTreeStructure[levelName];
     let subAST = findNamedSubquery(ast, levelPath);
-    checkForWrongAgg(svg, subAST, {}, schema, 0, -1);
+    checkForWrongAgg(subAST, []);
     analyzeGroupingAgg(svg, subAST, {}, schema, 0, -1);
   }
   
@@ -46602,11 +46602,101 @@ function indexOfColumnRef(columnRefs, searchColumn) {
   return -1;
 }
 
-function checkForWrongAgg(element, ast, aliases, schema, level, parent) {
-  console.warn('NotImplementedWarning on checkForWrongAgg');
-  // TODO: check for aggregation inside the WHERE (possible since text-level fixes are now disabled)
-  
-  // TODO: in general, scan for aggregation outside of SELECT & HAVING
+function checkForWrongAgg(ast, parent) {
+  /* NOTE: because this function recursively looks deeper into AST
+       components, it can run into subqueries. When this happens the subquery
+       is intentionally ignored, because that subquery will also be checked
+       through us checking every subquery manually.
+  */
+
+  let parentCopy = [...parent];
+  console.log('New check started, coming from parent path [' + parentCopy + ']. AST: ', ast);
+
+  if (parentCopy.length !== 0 && ast.type === 'select') {
+    // Found a subquery, which will be checked later on automatically. Stop.
+    // !== -1 check is to ensure checking doesn't immediately terminate.
+    console.log('Subquery root detected, aborting.');
+    return;
+  }
+
+  // recognisedKeywords is a subset of visitableElements, used to describe in
+  //   error messages within which keyword the problem occurred.
+  const recognisedKeywords = ['from', 'where', 'groupby'];
+
+  // AST elements where aggregation is okay are intentionally left out.
+  const visitableObjects = ['left', 'right', 'args', 'expr', 'stmt', 'where'];
+  const visitableLists = ['from', 'value', 'groupby'];
+  const visitableElements = [...visitableObjects];
+  visitableElements.push(...visitableLists);
+
+  if (Array.isArray(ast)) {
+    // If e.g. FROM was selected, this "AST" is an array. Iterate over it, and
+    //   do not expand the parent list since the list location is already there.
+    for (let visitableItemIndex in ast) {
+      if (ast.type === 'aggr_func') {
+        let keywordWithIssue = [...parentCopy].reverse();
+        keywordWithIssue = keywordWithIssue.find(element => recognisedKeywords.includes(element));
+        
+        let errorType = 'MisplacedAgg';
+        let errorTitle = 'Invalid aggregation in ' + keywordWithIssue.toUpperCase();
+        let errorMessage = 'It is not allowed to use aggregation inside a '
+          + keywordWithIssue.toUpperCase() + ' statement in SQL. You may need '
+          + 'to rewrite this part of your query or move this part elsewhere.';
+        
+        let newErrorInfo = makeErrorInfo(errorType, errorMessage, errorTitle);
+        insertErrorInfo(ast, newErrorInfo);
+      }
+
+      checkForWrongAgg(ast[visitableItemIndex], parentCopy);
+    }
+  } else {
+    // So this is an object. Since this function only visits areas where
+    //   aggregation should not be, if we detect aggregation it is a problem.
+    if (ast.type === 'aggr_func') {
+      let keywordWithIssue = [...parentCopy].reverse();
+      keywordWithIssue = keywordWithIssue.find(element => recognisedKeywords.includes(element));
+      
+      let errorType = 'MisplacedAgg';
+      let errorTitle = 'Invalid aggregation in ' + keywordWithIssue.toUpperCase();
+      let errorMessage = 'It is not allowed to use aggregation inside a '
+        + keywordWithIssue.toUpperCase() + ' statement in SQL. You may need '
+        + 'to rewrite this part of your query or move this part elsewhere.';
+      
+      let newErrorInfo = makeErrorInfo(errorType, errorMessage, errorTitle);
+      insertErrorInfo(ast, newErrorInfo);
+    }
+
+    for (let element in ast) {
+      if (visitableObjects.includes(element)) {
+        // TODO: should analysis go here?
+        console.log('Visitable object located, visiting: ' + element);
+        parentCopy.push(element);
+        checkForWrongAgg(ast[element], parentCopy);
+        parentCopy.pop();
+      } else if (visitableLists.includes(element)) {
+        // Double check, because especially with 'value' sometimes it is a
+        //   visitable list and sometimes it is a number or a string
+        if (['number', 'string'].includes(typeof ast.type)) {
+          // This list isn't a list, it's just a value. Which also means
+          //   this thing definitely does not have aggregation and so is fine.
+          continue;
+        }
+        console.log('List containing visitable items located with name: ' + element);
+        parentCopy.push(element);
+        for (let visitableItemIndex in ast[element]) {
+          let visitableItem = ast[element][visitableItemIndex];
+          if (element === 'with') {
+            // WITH statements are rather unique in their construction. It's not
+            //   unlikely that this might affect/break something else within WITHs.
+            visitableItem = visitableItem['stmt'];
+            parentCopy.push('stmt');
+          }
+
+          let visitedObject = checkForWrongAgg(visitableItem, parentCopy);
+        }
+      }
+    }
+  }
 }
 
 function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
