@@ -44572,8 +44572,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
   // TODO: double HAVING detection should perhaps be a thing too.
 
   // Many things are edited in-place in this function, and not returned.
-  let returnObject = {'query': query,
-                      'directlySubsequentWhere': false};
+  let returnObject = {'query': query, 'editsMade': false};
 
   const aggregateFuncs = ['avg', 'count', 'group_concat', 'max',
                           'min', 'sum', 'total'];
@@ -44611,13 +44610,15 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
         //   (i.e. WHERE [something] WHERE [other things]). If so, it will be
         //   turned into an AND statement instead. If this is detected this
         //   function needs to be rerun as well, to fix more potential repeats.
-        returnObject.directlySubsequentWhere = (mistake.mistakeWord[1][2] + 1 === secondWhereStart);
+        let directlySubsequentWhere = (mistake.mistakeWord[1][2] + 1 === secondWhereStart);
+
+        if (!groupByBefore2ndWhere && !directlySubsequentWhere) {
+          // Nothing to fix here.
+          return returnObject;
+        }
 
         if (groupByBefore2ndWhere) {
-          let whereHavingFix = 'WHERE';
-          if (groupByBefore2ndWhere) {
-            whereHavingFix += '_LOC';
-          }
+          let whereHavingFix = 'WHERE_LOC';
           
           if (keywordsInLevel.includes('having')) {
             // The second WHERE should be a HAVING, but there already is one so
@@ -44710,7 +44711,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           // Update the found mistake to reflect the change.
           mistake.handledBy = whereHavingFix;
 
-        } else if (returnObject.directlySubsequentWhere) {
+        } else if (directlySubsequentWhere) {
           // Make the second where an AND of the first WHERE instead, and fill
           //   the extra space with spaces so all indices after this remain fine.
           let replacementString = ' AND ';
@@ -44725,8 +44726,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           mistake.handledBy = 'WHERE->AND';
         }
         else {
-          // Not sure there exists a way to trigger this, but in case it happens
-          //   give a clear error message.
+          // This should be impossible.
           console.warn('There is a second WHERE in the returnObject.query for which we are '
                        + 'unable to determine how to work around it.');
         }
@@ -44886,7 +44886,7 @@ function attemptOrderingFix(query) {
   const maxWhereHavingRepeats = 5;
   
   // This is also the order in which the keywords should appear.
-  const keywordsToFind = ['with', 'select', 'from', 'join', 'on',
+  const keywordsToFind = ['with', 'select', 'from', 'join', //'on',
                           'where', 'group by', 'having', 'order by'];
   const subqueryMarkers = ['(', ')'];
   
@@ -44905,6 +44905,7 @@ function attemptOrderingFix(query) {
   onlyKeepSubqueryBrackets(keywordStatus);
 
   addKeywordEndings(keywordStatus, query.length);
+  console.log(keywordStatus);
   // Now it SHOULD BE of the form:
   // [
   //   [ 'select', 0, 28 ],
@@ -44963,26 +44964,27 @@ function attemptOrderingFix(query) {
     onlyKeepBiggestMistakes(levelMistakes);
   }
 
-  let doubleDetectionDone = false;
+  let doubleWhereEditsDone = false;
   for (let i = 0; i < maxWhereHavingRepeats; i++) {
     // TODO: only does double WHERE, but I want double HAVING too
+    // console.log('Starting doubleWhereDetection iteration ' + i, keywordsPerLevel, query);
     returnObject = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
-    doubleDetectionDone = returnObject.directlySubsequentWhere;
     query = returnObject.query;
-    console.log(query);
-    if (doubleDetectionDone) {
+    if (!returnObject.editsMade) {
+      doubleWhereEditsDone = true;
       break;
     }
   }
   
-  if (!doubleDetectionDone) {
+  if (!doubleWhereEditsDone) {
     console.warn('Likely not all repeats of WHERE/HAVING keywords are solved, resulting in missing '
                  + 'conditions in the visualization (assuming the visualization even works).');
   }
 
   // Attempt to actually repair the query.
+  console.log('Pre reorg:\n' + query);
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
-  console.log(reorganizedQuery);
+  console.log('Post reorg:\n' + reorganizedQuery);
 
   // keywordsPerLevel was updated along the way as needed by forcedReordering,
   //   but levelTree was not. KeywordStatus was also maintained, so just rerun
@@ -46074,10 +46076,31 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         }
         
         if (selects[label] && selects[label][d]) {
-          if (selects[label][d].errorInfo) {
+          // TODO: I think the current issue is that my own errors are one layer too deep (within label d objectindex).
+          //   Attempting to fix this now, but unsure if functional.
+          // If this works:
+          // TODO: this setup, like with conditions, only shows max one error.
+          let errorFound = selects[label][d].errorInfo || false;
+          let markAsSelection = false;
+
+          for (let objectIndex in selects[label][d]) {
+            if (errorFound && markAsSelection) {
+              break;
+            }
+            if (selects[label][d][objectIndex].errorInfo) {
+              errorFound = selects[label][d][objectIndex].errorInfo;
+            }
+            // Something being marked as a GROUP BY column does not imply that
+            //   it is in the SELECT as well, do not mark prematurely.
+            if (selects[label][d][objectIndex].type !== 'groupby') {
+              markAsSelection = true;
+            }
+          }
+
+          if (errorFound) {
             console.log('Errored selection:', selects[label][d]);
             classes.push('erroredSelection');
-          } else {
+          } else if (markAsSelection) {
             console.log('Normal selection:', selects[label][d]);
             classes.push('selection');
           }
@@ -46097,17 +46120,29 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         var classes = [];
         if (cons[label] && cons[label][d]) {
           let [consHaving, consWhere] = separateConditions(cons[label][d]);
-          if (cons[label].errorInfo) {
+
+          let errorFound = cons[label].errorInfo || false;
+          let markAsCondition = consWhere.length > 0;
+          let markAsHaving = consHaving.length > 0;
+
+          for (let objectIndex in cons[label][d]) {
+            if (cons[label][d][objectIndex].errorInfo) {
+              errorFound = cons[label][d][objectIndex].errorInfo;
+              break;
+            }
+          }
+          
+          if (errorFound) {
             /* Right now only the selected column is highlighted in red, to highlight condition
                 we would have to add erroredCondition class, both to the .css file as it is not yet defined and here
             */
             classes.push('erroredSelection');
           } else {
-            if (consWhere.length > 0) {
+            if (markAsCondition) {
               // console.log('(body) - WHERE conditions in:', cons[label][d]);
               classes.push('condition');
             }
-            if (consHaving.length > 0) {
+            if (markAsHaving) {
               // console.log('(body) - HAVING conditions in:', cons[label][d]);
               classes.push('conditionHaving');
             }
@@ -46115,9 +46150,33 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         }
 
         if (selects[label] && selects[label][d]) {
-          if (selects[label][d].errorInfo) {
+          let errorFound = selects[label][d].errorInfo || false;
+          let markAsSelection = false;
+
+          for (let objectIndex in selects[label][d]) {
+            if (errorFound && markAsSelection) {
+              // Since we (currently) can't show multiple errors and are
+              //   already marking as selected, no reason to continue.
+              break;
+            }
+
+            if (selects[label][d][objectIndex].errorInfo) {
+              errorFound = selects[label][d][objectIndex].errorInfo;
+            }
+
+            // Something being marked as a GROUP BY column does not imply that
+            //   it is in the SELECT as well, do not mark prematurely. Also
+            //   check if this array item isn't suddenly an errorInfo itself.
+            if (selects[label][d][objectIndex].type !== 'groupby') {
+              if (typeof selects[label][d][objectIndex].result === 'undefined') {
+                markAsSelection = true;
+              }
+            }
+          }
+
+          if (errorFound) {
             classes.push('erroredSelection');
-          } else {
+          } else if (markAsSelection) {
             classes.push('selection');
           }
         }
@@ -46146,7 +46205,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           let colContents = '<div>';
           for (let objectIndex in selects[label][d]) {
             let selectObject = selects[label][d][objectIndex];
-            console.log('SELECT label thing ', selects[label][d][objectIndex]);
+            // console.log('SELECT label ', selects[label][d][objectIndex]);
             if (typeof selectObject.value !== 'undefined') {
               // Only add <br> if there is content, to avoid wrong empty lines.
               let textToAdd = selectObject.value === '' ? selectObject.value
@@ -46154,9 +46213,10 @@ function expand(node, id, d3, showAlertsOnFail = true) {
               colContents += textToAdd;
             }
             else {
-              // I don't think this should be possible, but... who knows.
-              console.warn('selects[label][d][' + objectIndex + '] does not follow the object structure somehow', selects[label][d]);
-              colContents += selects[label][d][objectIndex] + '<br>';
+              // This can trigger on errorInfo being in the array.
+              console.warn('selects[label][d][' + objectIndex + '] does not follow the '
+                           + 'expected object structure. Ignoring.', selects[label][d]);
+              // colContents += selects[label][d][objectIndex] + '<br>';
             }
           }
 
@@ -46203,7 +46263,7 @@ function highlightNodes(graph, svg) {
 }
 
 
-function addSelection(selection, aggregation, table, column, aliases) {
+function addSelection(selection, value, type, table, column, aliases) {
   // Check if there is an alias for this table
   for (var alias in aliases) {
     if (aliases[alias] == table) {
@@ -46214,15 +46274,15 @@ function addSelection(selection, aggregation, table, column, aliases) {
   if (table in selection) {
     if (column in selection[table]) {
       if (selection[table][column] == '') {
-        selection[table][column] = [{'value': aggregation}];
+        selection[table][column] = [{'value': value, 'type': type}];
       } else {
-        selection[table][column].push({'value': aggregation});
+        selection[table][column].push({'value': value, 'type': type});
       }
     } else {
-      selection[table][column] = [{'value': aggregation}];
+      selection[table][column] = [{'value': value, 'type': type}];
     }
   } else {
-    var newObj = {[column]: [{'value': aggregation}]};
+    var newObj = {[column]: [{'value': value, 'type': type}]};
     selection[table] = newObj;
   }
 
@@ -46700,7 +46760,7 @@ function checkForWrongAgg(ast, parent) {
 }
 
 function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
-  // TODO: this entire thing should be recursive as well, first implementation is root level only
+  // Checking of subqueries is done via this function's caller.
 
   // TODO/FIXME: for insuff. grouping, errors are only visualized if a table
   //   name is included. Why does this bug occur, and how to fix?
@@ -47295,8 +47355,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       if (table in selection) {
         // We previously already saw a column in this table being selected.
         // Also include a selection for this new column.
-        selection = addSelection(selection, '', table, column, aliases);
-        // selection[table][column] = ['']; // Pac: this was here before
+        selection = addSelection(selection, '', 'selection', table, column, aliases);
 
         console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
@@ -47308,7 +47367,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           }
         }
       } else {
-        selection = addSelection(selection, '', table, column, aliases)
+        selection = addSelection(selection, '', 'selection', table, column, aliases);
         // selection[table] = {[column]: ['']}; // Pac: this was here before
         console.log('First selection column added in ' + table, selection);
         // Maybe selection also contains an error
@@ -47387,7 +47446,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       
       // It is only a selection if we select in the top level
       if (level == 0) {
-        selection = addSelection(selection, aggregation, table, column, aliases);
+        selection = addSelection(selection, aggregation, 'aggregation', table, column, aliases);
       } else {
         // Else we only need to add the aggregation string.
         var subCondition = {};
@@ -47413,7 +47472,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
 
       if (level == 0) {
-        selection = addSelection(selection, aggregation, table, column, aliases);
+        selection = addSelection(selection, aggregation, 'Selection type?', table, column, aliases);
       } else {
         // Else we only need to add the aggregation string.
         var subCondition = {};
@@ -47453,7 +47512,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
       aggregation = `GROUP (${parseInt(i)+1})`;
 
-      selection = addSelection(selection, aggregation, table, column, aliases);
+      selection = addSelection(selection, aggregation, 'groupby', table, column, aliases);
       setSelections(selection);
 
       if (ast.groupby[i].errorInfo) {
@@ -47519,7 +47578,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   // If there is a where clause, check the level within the tree.
   if (ast.where != null) {
     var [subNodes, subLinks] = generateGraphExpression(
-      element, ast.where, aliases, schema, level, parent, tables, nodes, links, parent, level);
+      element, ast.where, aliases, schema, level, parent, tables, nodes, links, parent, level, 'where');
     nodes = nodes.concat(subNodes);
     links = links.concat(subLinks);
   }
@@ -47530,7 +47589,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   */
   if (ast.having != null) {
     var [subNodes, subLinks] = generateGraphExpression(
-      element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level);
+      element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level, 'having');
     nodes = nodes.concat(subNodes);
     links = links.concat(subLinks);
   }
@@ -47548,19 +47607,19 @@ function modifyNode(nodes, instance) {
 }
 
 
-function generateGraphExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel) {
+function generateGraphExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType) {
   if (ast.type == 'binary_expr') {
     /* I have messed with this function a bit, unsure how much it affects. */
     
     if (ast.errorInfo) {
-      // There was errorInfo put on the root of this WHERE. Propagating it into
+      // There was errorInfo put on the root of this. Propagating it into
       //   each side of the predicate gets it picked up in the processing.
-      // TODO: just insert it there in the first place
+      // TODO: just insert that errorInfo there in the first place
       insertErrorInfo(ast.left, ast.errorInfo);
       insertErrorInfo(ast.right, ast.errorInfo);
     }
 
-    if (ast.left.type === 'column_ref') {
+    if (linkType === 'where') {
       if (ast.right.type === 'select') {
         //something left
         // No link needs to be generated as it is not possible to connect an edge to a container.
@@ -47613,11 +47672,11 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
 
         return [nodes, links];
       } else {
-        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
+        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
         return [linksAndNodes.nodes, linksAndNodes.links];
       }
     }
-    else if (ast.left.type === 'aggr_func') {
+    else if (linkType === 'having') {
       if (ast.right.type == 'select') {
         console.warn('HAVING with subquery on the right. Not sure how to trigger this, bc subqueries are not this? '
                      + 'Current handling is likely to be incorrect, it is a copy paste of the WHERE approach.');
@@ -47673,23 +47732,22 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
 
         return [nodes, links];
       } else {
-        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel);
+        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
         return [linksAndNodes.nodes, linksAndNodes.links];
       }
     }
+    else {
+      console.warn('Unknown link type: ' + linkType);
+    }
 
     var [lNodes, lLinks] = generateGraphExpression(
-      element,
-      ast.left,
-      aliases, schema,
-      level + 'l', level,
-      tables, graphNodes, graphLinks, originalParent, originalLevel);
+      element, ast.left, aliases, schema,
+      level + 'l', level, tables, graphNodes,
+      graphLinks, originalParent, originalLevel, linkType);
     var [rNodes, rLinks] = generateGraphExpression(
-      element,
-      ast.right,
-      aliases, schema,
-      level + 'r', level,
-      tables, graphNodes, graphLinks, originalParent, originalLevel);
+      element, ast.right, aliases, schema,
+      level + 'r', level, tables, graphNodes,
+      graphLinks, originalParent, originalLevel, linkType);
     return [lNodes.concat(rNodes), lLinks.concat(rLinks)];
 
   } else if (ast.type == 'unary_expr') {
@@ -47702,17 +47760,11 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
   } else if (ast.type === 'aggr_func') {
     console.log('Now visiting the inside of a HAVING statement (should be the left side). '
                 + 'AST here is: ', ast);
+    console.warn('There is nothing happening in the body of this if...?', ast);
   } else {
-    /* TODO: This is the part where my HAVING interpretation comes in. This 
-         function is now also called for HAVING statements, but if an aggr_func
-         is involved we land here now. Need to interpret. If possible, split
-         things from the if parts above this into different functions so calling
-         them again can be a lot more efficient.
-    */
     alert("Something might be wrong with your WHERE and/or HAVING clauses, "
           + "please check your query.");
-    console.warn('Git commit unalive (TODO: rm this log).', ast);
-    throw Error('Unknown where type: ' + ast.type);
+    throw Error('Unknown where type: ' + ast.type, ast);
   }
 }
 
@@ -47793,7 +47845,7 @@ function generateHavingExpression(element, ast, aliases, schema, level, parent, 
 * @param schema   The schema of the current database.
 * @returns      An array of link objects, each containing source, target, type and label.
 */
-function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent, level) {
+function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent, level, linkType) {
   if (isLeaf(node.left) && isLeaf(node.right)) {
     var link = {};
     link['label'] = [];
@@ -47971,14 +48023,14 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
       }
     } else if(node.right.type == 'number' || node.right.type == 'string') {
       // link to self.
-      if (node.left.type === 'aggr_func') {
-        // TODO: with this, only HAVING components with aggregation are marked.
-        //   However, HAVING can also have non-agg conditions. There is no
-        //   direct tag to recognize those (propagate such a tag manually?). 
+      if (linkType === 'having') {
         link['type'] = 'conditionHaving';
       }
-      else {
+      else if (linkType === 'where') {
         link['type'] = 'condition';
+      } else {
+        console.warn('Unhandled link type ' + linkType + '. Propagating link type instead of condition.');
+        link['type'] = String(linkType);
       }
       link['column'] = leftColumn;
       
@@ -48010,10 +48062,10 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
   var linksRight = [];
 
   if (node.left != null) {
-    linksLeft = getLinks(node.left, aliases, schema, tables, graphNodes, graphLinks).links;
+    linksLeft = getLinks(node.left, aliases, schema, tables, graphNodes, graphLinks, null, null, linkType).links;
   }
   if (node.right != null) {
-    linksRight = getLinks(node.right, aliases, schema, tables, graphNodes, graphLinks).links;
+    linksRight = getLinks(node.right, aliases, schema, tables, graphNodes, graphLinks, null, null, linkType).links;
   }
   return {nodes: [], links: linksLeft.concat(linksRight)};
 }
