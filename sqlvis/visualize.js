@@ -44696,10 +44696,10 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
 
             // As HAVING has one character more than WHERE, every start & end
             //   index after the start of this now-HAVING must be offset by 1.
-            console.log('levelKeywords before WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
+            // console.log('levelKeywords before WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
             levelKeywords[secondWhereIndex][0] = 'having';
             levelKeywords[secondWhereIndex][2]++;
-            console.log('levelKeywords after WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
+            // console.log('levelKeywords after WHERE->HAVING: ', JSON.parse(JSON.stringify(levelKeywords)));
 
             cascadingKeywordStartEndShift(keywordsPerLevel, levelName,
                                           secondWhereIndex + 1, 1);
@@ -45175,7 +45175,7 @@ function findFirstgroup_by_(astPart, pathTaken=[], alsoFix=false) {
 }
 
 
-function findLastFullBranch(astWhereHaving) {
+function findNtoLastFullBranch(astWhereHaving, nthToLast) {
   if (!(typeof astWhereHaving.left !== 'undefined')
        || !(typeof astWhereHaving.right !== 'undefined')) {
     throw Error('Function expects to receive the AST root of a WHERE statement, but '
@@ -45188,18 +45188,36 @@ function findLastFullBranch(astWhereHaving) {
 
   // Find the "right-most" part of the WHERE/HAVING in the AST that still has
   //   .right and .left properties, meaning it is itself a full WHERE clause.
-  // We want the last full WHERE clause, because if we fixed a WHERE/HAVING
-  //   error by correcting the clause's wording, we know it will be at the end.
-  // console.log('Finding last full branch on AST part:\n'
-  //             + util.inspect(astWhereHaving, false, 4, true));
-  while (typeof astWhereHaving.right.left !== 'undefined'
-         && typeof astWhereHaving.right.right !== 'undefined') {
-    // console.log('Saw a full branch on right side, going in. Going into .right of:\n'
+  // The last full clause is at .right, the second to last at .left.right, and
+  //   for every further depth add another .left.
+  let astSearch = astWhereHaving;
+  let nrClauses = 1;
+  while (typeof astSearch.right.left !== 'undefined'
+         && typeof astSearch.right.right !== 'undefined') {
+    // console.log('Saw a full branch on right side, going deeper in. '
+    //             + 'Going into .left of:', astSearch);
     //           + util.inspect(astWhereHaving, false, 4, true));
+    nrClauses++;
+    astSearch = astSearch.left;
+  }
+
+  // console.log('Nr clauses found: ' + nrClauses);
+
+  // nthToLast = 1: get the last one (= no left steps)
+  for (let i = 1; i < nthToLast; i++) {
+    if (i >= nrClauses) {
+      console.warn('Attempting to get nth to last clause for n greater than the number '
+                   + 'of existing clauses. n = ' + i + ', nrClauses = ' + nrClauses);
+    }
+    astWhereHaving = astWhereHaving.left;
+  }
+
+  // if nthToLast === nrClauses, this final .right gives the right side of the
+  //   clause instead of the clause itself.
+  if (nthToLast !== nrClauses) {
     astWhereHaving = astWhereHaving.right;
   }
-  // console.log('No more full right side branches to go into. Returning this:\n'
-  //             + util.inspect(astWhereHaving, false, 4, true));
+
   return astWhereHaving;
 }
 
@@ -45288,6 +45306,9 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
     //             + levelTreeStructure[levelName] + '] is:'
                 // + util.inspect(subqueryRoot, false, 5, true));
 
+    let whereErrorInNthToLast = 1;
+    let havingErrorInNthToLast = 1;
+
     for (let issueIndex in foundIssues[levelName]) {
       // TODO: there should be a more efficient way to do this, e.g. saving the
       //   path to the subquery and simply following that again from ast after
@@ -45333,7 +45354,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           // Leave a mistake marker on the root of the last left-right combo
           //   on the HAVING clause -> this is either the only L-R combo,
           //   or the last one meaning the part that was moved there
-          subqueryRoot = findLastFullBranch(subqueryRoot.having);
+          subqueryRoot = findNtoLastFullBranch(subqueryRoot.having, havingErrorInNthToLast);
           // These down here were the original.
           // errorMessage = 'You used the WHERE keyword here, but this needed to be '
           //                + 'HAVING because of either the placement of this part of '
@@ -45341,19 +45362,35 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           // errorTitle = 'WHERE should be HAVING';
           newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
+          havingErrorInNthToLast++;
           // console.log('V2    - WHERE->HAVING');
 
         } else if (issue.handledBy === 'WHERE->AND') {
           // Leave a mistake marker on the root of the last left-right combo
-          //   of the WHERE clause -> on the entire thing that was moved
-          subqueryRoot = findLastFullBranch(subqueryRoot.where);
-          errorMessage = 'You used the WHERE keyword here, but this needed to be '
-                         + 'AND. You should only use WHERE once per query, all '
+          //   that wasn't already marked as duplicate -> on the changed clause
+          subqueryRoot = findNtoLastFullBranch(subqueryRoot.where, whereErrorInNthToLast);
+          errorMessage = 'You used WHERE here, but this needed to be '
+                         + 'AND. You can only use WHERE once per query, all '
                          + 'further conditions should be AND.';
           errorTitle = 'WHERE should be AND';
           newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
-          insertErrorInfo(subqueryRoot, newErrorInfo);
+          insertErrorInfo(subqueryRoot.left, newErrorInfo);
+          insertErrorInfo(subqueryRoot.right, newErrorInfo);
+          whereErrorInNthToLast++;
           // console.log('V2    - WHERE->AND');
+
+        } else if (issue.handledBy === 'HAVING->AND') {
+          // Leave a mistake marker on the root of the last left-right combo
+          //   that wasn't already marked as duplicate -> on the changed clause
+          subqueryRoot = findNtoLastFullBranch(subqueryRoot.having, havingErrorInNthToLast);
+          errorMessage = 'You used HAVING here, but this needed to be '
+                         + 'AND. You can only use WHERE once per query, all '
+                         + 'further conditions should be AND.';
+          errorTitle = 'HAVING should be AND';
+          newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
+          insertErrorInfo(subqueryRoot.left, newErrorInfo);
+          insertErrorInfo(subqueryRoot.right, newErrorInfo);
+          havingErrorInNthToLast++;
 
         } else if (issue.handledBy === 'GROUP BY ->GROUP_BY_') {
           // Walk through every single attribute, find & tag the first thing
@@ -45858,8 +45895,8 @@ function drawGraph(vertices, links, container, d3, schema) {
 
 
   // Tooltip
-  var div = d3.select("body").append("div") 
-      .attr("class", "tooltip")       
+  var div = d3.select("body").append("div")
+      .attr("class", "tooltip")
       .style("opacity", 0);
 
   var svg = container.select('svg');
@@ -46152,8 +46189,10 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         if (selects[label] && selects[label][d]) {
           let errorFound = selects[label][d].errorInfo || false;
           let markAsSelection = false;
+          console.log('Checking new table part for selection: ', selects[label][d]);
 
           for (let objectIndex in selects[label][d]) {
+            console.log('Index: ' + objectIndex);
             if (errorFound && markAsSelection) {
               // Since we (currently) can't show multiple errors and are
               //   already marking as selected, no reason to continue.
@@ -46162,13 +46201,16 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
             if (selects[label][d][objectIndex].errorInfo) {
               errorFound = selects[label][d][objectIndex].errorInfo;
+              console.log('Error found.');
             }
 
             // Something being marked as a GROUP BY column does not imply that
             //   it is in the SELECT as well, do not mark prematurely. Also
             //   check if this array item isn't suddenly an errorInfo itself.
             if (selects[label][d][objectIndex].type !== 'groupby') {
+              console.log('Not a group by')
               if (typeof selects[label][d][objectIndex].result === 'undefined') {
+                console.log('selecting.')
                 markAsSelection = true;
               }
             }
@@ -46236,15 +46278,18 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
     // Append the table for measuring purposes.
     document.body.appendChild(table);
+    // TODO: Somehow, this rectangle is not always actually right. How?
+    //   ^ This results in the table sometimes escaping the node.
     var tableSize = table.getBoundingClientRect();
     var tableHeight = tableSize.height;
     var tableWidth = tableSize.width;
     document.body.removeChild(table);
 
     // Make sure the node is big enough to hold the table
+    // Also add a fixed amount, so that smaller tables don't escape the node
     // TODO: since size issues occur regularly, maybe adjust?
     node.width = tableWidth;
-    node.height = 1.1*tableHeight;
+    node.height = 20 + 1.1*tableHeight;
     node.label += table.outerHTML;
   }
 }
@@ -46265,9 +46310,11 @@ function highlightNodes(graph, svg) {
 
 function addSelection(selection, value, type, table, column, aliases) {
   // Check if there is an alias for this table
+  // TODO: there may be an issue here - when a table is used multiple
+  //   times and may have multiple aliases, the last one found is selected
   for (var alias in aliases) {
     if (aliases[alias] == table) {
-      var table = alias;
+      table = alias;
     }
   }
 
@@ -46727,6 +46774,10 @@ function checkForWrongAgg(ast, parent) {
     }
 
     for (let element in ast) {
+      if (!ast[element]) {
+        // The for loop also hits elements that "exist" but are actually null.
+        continue;
+      }
       if (visitableObjects.includes(element)) {
         // TODO: should analysis go here?
         console.log('Visitable object located, visiting: ' + element);
@@ -47768,9 +47819,6 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
   }
 }
 
-function generateGrapBinaryExpression(element, ast, aliases, schema, level, parent) {
-}
-
 // If there is a subquery, recursively find the nodes and links there too.
 function generateGraphUnaryExpression(element, ast, aliases, schema, level, parent) {
   var nodes = [];
@@ -47798,45 +47846,6 @@ function isARefToWithClause(table) {
 }
 
 
-function generateHavingExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel) {
-  if (ast.errorInfo) {
-    // There was errorInfo put on the root of this WHERE. Propagating it into
-    //   each side of the predicate gets it picked up in the processing.
-    insertErrorInfo(ast.left, ast.errorInfo);
-    insertErrorInfo(ast.right, ast.errorInfo);
-  }
-
-  console.warn('Generating HAVING expression is disabled at the moment.');
-
-  // if (ast.type === 'binary_expr') {
-  //   // Either one of the two sides has to be an aggregation function, or there
-  //   //   is a subquery that should be explored further. If so, recursion.
-  //   if (ast.left.type === 'aggr_func') {
-
-  //   } else if (ast.right.type === 'aggr_func') {
-
-  //   } else if (ast.left.type === 'select') {
-
-  //   } else if (ast.right.type === 'select') {
-
-  //   } else {
-  //     throw Error('HAVING statement that I am unsure');
-  //   }
-  // } else if (ast.type === 'unary_expr') {
-  //   console.warn('Not sure exactly how to deal with a unary expression in HAVING. Using '
-  //                + 'the implementation from WHERE currently.');
-  //   // If there is errorInfo on the root of this where, push it down to the
-  //   //   expression so that it can be evaluated in the function.
-  //   if (ast.errorInfo) {
-  //     insertErrorInfo(ast.expr, ast.errorInfo);
-  //   }
-  //   return generateGraphUnaryExpression(element, ast, aliases, schema, level+1, level);
-  // } else {
-  //   throw Error('Unknown AST type while generating HAVING expression: ' + ast.type + '\n'
-  //               + 'AST at this point: ' + ast);
-  // }
-}
-
 /**
 * Function to recursively retrieve all links from the where part of an AST.
 *
@@ -47856,8 +47865,10 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
     var addNodeForRight = false;
     var idLeft = "?";
     var idRight = "?";
+    console.log('Getting node links from:', node);
     // Check if the node is an error node and add that information to the link
     if (node.left.errorInfo || node.right.errorInfo) {
+      console.log('Link with error in (one of the) leaves');
       errored = true;
       link.error = true;
       // Currently only using the first error, not multiple at the same time
