@@ -44569,8 +44569,6 @@ function fixSingleWrongWhere(keywordsPerLevel, query) {
 
 
 function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
-  // TODO: double HAVING detection should perhaps be a thing too.
-
   // Many things are edited in-place in this function, and not returned.
   let returnObject = {'query': query, 'editsMade': false};
 
@@ -44581,7 +44579,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
   for (let levelName in keywordsPerLevel) {
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
     let levelMistakes = foundIssues[levelName];
-    let lowercaseQuery = returnObject.query.toLowerCase(); // returnObject.query can change, so update.
+    // let lowercaseQuery = returnObject.query.toLowerCase(); // returnObject.query can change, so update.
 
     let keywordsInLevel = levelKeywords.map(x => x[0]);
 
@@ -44736,6 +44734,56 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
   return returnObject;
 }
 
+
+function doubleHavingDetection(foundIssues, keywordsPerLevel, query) {
+  // Many things are edited in-place in this function, and not returned.
+  // NOTE: this only fixes directly subsequent HAVING repeats. Another HAVING
+  //   in a different place is currently ignored.
+  let returnObject = {'query': query, 'editsMade': false};
+
+  const havingLength = 'HAVING'.length; // Just to avoid magic numbers.
+
+  for (let levelName in keywordsPerLevel) {
+    let levelKeywords = keywordsPerLevel[levelName].keywordArray;
+    let levelMistakes = foundIssues[levelName];
+
+    let keywordsInLevel = levelKeywords.map(x => x[0]);
+
+    for (let mistakeIndex in levelMistakes) {
+      let mistake = levelMistakes[mistakeIndex];
+      if (mistake.mistakeWord[0] === mistake.detectedAtKeyword[0]
+          && mistake.mistakeWord[1][0] === 'having') {
+        // This detected error was a double HAVING. Make the duplicate AND.
+
+        let secondHavingIndex = allIndicesOf(keywordsInLevel, 'having')[1];
+
+        let secondHavingStart = mistake.detectedAtKeyword[1][1];
+        let secondHavingEnd = mistake.detectedAtKeyword[1][2];
+        let secondHavingSlice = returnObject.query.slice(secondHavingStart, secondHavingEnd + 1);
+
+        // Check if the second detected HAVING comes right after the first one
+        //   (i.e. HAVING [something] HAVING [other things]). If so, it will be
+        //   turned into an AND statement instead. If this is detected this
+        //   function needs to be rerun as well, to fix more potential repeats.
+        let directlySubsequentHaving = (mistake.mistakeWord[1][2] + 1 === secondHavingStart);
+
+        let replacementString = ' AND  ';
+        let havingFix = 'HAVING->AND';
+
+        returnObject.query = stringSplice(returnObject.query, secondHavingStart,
+                                          havingLength, replacementString);
+
+        mistake.handledBy = havingFix;
+
+        // Handle the WHERE merge and reset keywordsInLevel.
+        levelKeywords[secondHavingIndex-1][2] = secondHavingEnd;
+        levelKeywords.splice(secondHavingIndex, 1);
+        keywordsInLevel = levelKeywords.map(x => x[0]);
+      }
+    }
+  }
+  return returnObject;
+}
 
 function retrieveKeywordIfPresent(keywordArray, keywordToFind) {
   for (let index in keywordArray) {
@@ -44966,7 +45014,6 @@ function attemptOrderingFix(query) {
 
   let doubleWhereEditsDone = false;
   for (let i = 0; i < maxWhereHavingRepeats; i++) {
-    // TODO: only does double WHERE, but I want double HAVING too
     // console.log('Starting doubleWhereDetection iteration ' + i, keywordsPerLevel, query);
     returnObject = doubleWhereDetection(foundIssues, keywordsPerLevel, query);
     query = returnObject.query;
@@ -44977,14 +45024,28 @@ function attemptOrderingFix(query) {
   }
   
   if (!doubleWhereEditsDone) {
-    console.warn('Likely not all repeats of WHERE/HAVING keywords are solved, resulting in missing '
+    console.warn('Likely not all repeats of WHERE keywords are solved, resulting in missing '
+                 + 'conditions in the visualization (assuming the visualization even works).');
+  }
+
+  let doubleHavingEditsDone = false;
+  for (let i = 0; i < maxWhereHavingRepeats; i++) {
+    // console.log('Starting doubleWhereDetection iteration ' + i, keywordsPerLevel, query);
+    returnObject = doubleHavingDetection(foundIssues, keywordsPerLevel, query);
+    query = returnObject.query;
+    if (!returnObject.editsMade) {
+      doubleHavingEditsDone = true;
+      break;
+    }
+  }
+
+  if (!doubleWhereEditsDone) {
+    console.warn('Likely not all repeats of HAVING keywords are solved, resulting in missing '
                  + 'conditions in the visualization (assuming the visualization even works).');
   }
 
   // Attempt to actually repair the query.
-  console.log('Pre reorg:\n' + query);
   let reorganizedQuery = forcedReordering(query, keywordsPerLevel);
-  console.log('Post reorg:\n' + reorganizedQuery);
 
   // keywordsPerLevel was updated along the way as needed by forcedReordering,
   //   but levelTree was not. KeywordStatus was also maintained, so just rerun
@@ -45384,7 +45445,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           //   that wasn't already marked as duplicate -> on the changed clause
           subqueryRoot = findNtoLastFullBranch(subqueryRoot.having, havingErrorInNthToLast);
           errorMessage = 'You used HAVING here, but this needed to be '
-                         + 'AND. You can only use WHERE once per query, all '
+                         + 'AND. You can only use HAVING once per query, all '
                          + 'further conditions should be AND.';
           errorTitle = 'HAVING should be AND';
           newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
@@ -45625,6 +45686,7 @@ function processConditions(cons, nodes) {
 
   for (var con in cons) {
     var object = {};
+    console.log(cons[con]);
     var table = cons[con].sourceAlias;
     var column = cons[con].column;
     var value = cons[con].value;
@@ -45634,15 +45696,19 @@ function processConditions(cons, nodes) {
     object.type = type;
 
     // Condition errors are propagated to nodes instead
-    if (cons[con].error && cons[con].errorInfo.type == 'table_ref_invalid_alias') {
+    if (cons[con].error) {
+      object.errorInfo = cons[con].errorInfo;
+      // if (cons[con].errorInfo.type == 'table_ref_invalid_alias') {
       for (var n of nodes) {
-        if (n.label == cons[con].source && n.alias == cons[con].sourceAlias) {
+        // Pacmega: I'm not 100% sure what cases are helped by the first
+        //   condition but aren't covered by comparing aliases.
+        if (/*n.label == cons[con].source &&*/ n.alias == cons[con].sourceAlias) {
           n.errorInfo = cons[con].errorInfo;
           n.isHighlighted = true;
           n.isExpanded = true;
         }
       }
-      object.errorInfo = cons[con].errorInfo;
+      // }
     }
 
     if (table in result) {
@@ -45669,7 +45735,7 @@ function processConditions(cons, nodes) {
 
       // Propagate the error to the new object as well
       // TODO: if there are multiple errors in objects, this only stores one.
-      //   this is also what causes the "only shows a single error" situation.
+      //   this is (part of) what causes the "only shows a single error" issue.
       if (result[table][i].errorInfo) {
         newObj.errorInfo = result[table][i].errorInfo;
       }
@@ -46287,7 +46353,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
     // Make sure the node is big enough to hold the table
     // Also add a fixed amount, so that smaller tables don't escape the node
-    // TODO: since size issues occur regularly, maybe adjust?
+    // TODO: Table is still larger in width sometimes
     node.width = tableWidth;
     node.height = 20 + 1.1*tableHeight;
     node.label += table.outerHTML;
@@ -46717,12 +46783,12 @@ function checkForWrongAgg(ast, parent) {
   */
 
   let parentCopy = [...parent];
-  console.log('New check started, coming from parent path [' + parentCopy + ']. AST: ', ast);
+  // console.log('New check started, coming from parent path [' + parentCopy + ']. AST: ', ast);
 
   if (parentCopy.length !== 0 && ast.type === 'select') {
     // Found a subquery, which will be checked later on automatically. Stop.
     // !== -1 check is to ensure checking doesn't immediately terminate.
-    console.log('Subquery root detected, aborting.');
+    // console.log('Subquery root detected, aborting.');
     return;
   }
 
@@ -46779,8 +46845,7 @@ function checkForWrongAgg(ast, parent) {
         continue;
       }
       if (visitableObjects.includes(element)) {
-        // TODO: should analysis go here?
-        console.log('Visitable object located, visiting: ' + element);
+        // console.log('Visitable object located, visiting: ' + element);
         parentCopy.push(element);
         checkForWrongAgg(ast[element], parentCopy);
         parentCopy.pop();
@@ -46792,7 +46857,7 @@ function checkForWrongAgg(ast, parent) {
           //   this thing definitely does not have aggregation and so is fine.
           continue;
         }
-        console.log('List containing visitable items located with name: ' + element);
+        // console.log('List containing visitable items located with name: ' + element);
         parentCopy.push(element);
         for (let visitableItemIndex in ast[element]) {
           let visitableItem = ast[element][visitableItemIndex];
@@ -46822,8 +46887,6 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
 
 
   let [selectedCols, aggrCols] = identifySelectCols(ast);
-  console.log('selectedCols:', selectedCols);
-  console.log('aggrCols:', aggrCols);
 
   if (ast.groupby) {
     let groupbyCols = [...ast.groupby];
@@ -46834,9 +46897,9 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
     for (let unaggrColIndex in selectedCols) {
       let unaggrColumn = selectedCols[unaggrColIndex];
       let atGroupByIndex = indexOfColumnRef(groupbyCols, unaggrColumn);
-      console.log('Checking for insufficient grouping...\n'
-                  + 'Now checking column ' + unaggrColumn + ', which was found in groupbyCols '
-                  + 'at index ' + atGroupByIndex + '.');
+      // console.log('Checking for insufficient grouping...\n'
+      //             + 'Now checking column ' + unaggrColumn + ', which was found in groupbyCols '
+      //             + 'at index ' + atGroupByIndex + '.');
       if (atGroupByIndex === -1) {
         let colName = unaggrColumn.table ? unaggrColumn.table + '.' + unaggrColumn.column
                                          : unaggrColumn.column;
@@ -47549,11 +47612,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     for (var i in ast.groupby) {
       // Most errors break the GROUP BY, but early/late keywords should be
       //   visualized as if functional but marked with an error.
-      /* TODO / Known issue: GROUP BY marks entire table and loses GROUP(n) on column itself.
-           This is true for all SQLVis+ GROUP BY related errors, so is inherited. I think
-           this might be solved by the selection update at the bottom of this if, but Jupyter
-           is refusing to run the new code.
-      */
 
       // Always create the aggregation & add it to the selection, this needs to
       //   happen either way & otherwise errorInfo processing may break.
@@ -47865,10 +47923,8 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
     var addNodeForRight = false;
     var idLeft = "?";
     var idRight = "?";
-    console.log('Getting node links from:', node);
     // Check if the node is an error node and add that information to the link
     if (node.left.errorInfo || node.right.errorInfo) {
-      console.log('Link with error in (one of the) leaves');
       errored = true;
       link.error = true;
       // Currently only using the first error, not multiple at the same time
@@ -47955,14 +48011,17 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
       leftTable = node.left.table;
       leftColumn = node.left.column;
     }
+
     if (leftTable == null && !addNodeForLeft) {
       leftTable = getTable(leftColumn, schema, tables)[0];
     } else if (addNodeForLeft) {
       leftTable = node.left.errorInfo.ref.table? node.left.errorInfo.ref.table : idLeft;
     }
+
     var leftFullName = aliases[leftTable] || leftTable;
     var text = leftFullName + '.' + leftColumn;
     link['source'] = addNodeForLeft && idLeft !== "?"? idLeft : leftTable;
+    
     if (isARefToWithClause(leftFullName)) {
       link['leftIsWithRef'] = true;
       link['leftWithTableName'] = leftFullName;
