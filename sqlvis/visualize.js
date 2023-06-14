@@ -45686,7 +45686,6 @@ function processConditions(cons, nodes) {
 
   for (var con in cons) {
     var object = {};
-    console.log(cons[con]);
     var table = cons[con].sourceAlias;
     var column = cons[con].column;
     var value = cons[con].value;
@@ -46185,6 +46184,7 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           // TODO: this setup, like with conditions, only shows max one error.
           let errorFound = selects[label][d].errorInfo || false;
           let markAsSelection = false;
+          let sawGrouping = false;
 
           for (let objectIndex in selects[label][d]) {
             if (errorFound && markAsSelection) {
@@ -46196,11 +46196,18 @@ function expand(node, id, d3, showAlertsOnFail = true) {
             // Something being marked as a GROUP BY column does not imply that
             //   it is in the SELECT as well, do not mark prematurely.
             if (selects[label][d][objectIndex].type !== 'groupby') {
-              markAsSelection = true;
+              if (typeof selects[label][d][objectIndex].result === 'undefined') {
+                markAsSelection = true;
+              }
+            }
+            else {
+              sawGrouping = true;
             }
           }
 
-          if (errorFound) {
+          if (errorFound || (!markAsSelection && sawGrouping)) {
+            // For the second part there: column not selected but grouping on
+            //   means incorrect aggregation
             console.log('Errored selection:', selects[label][d]);
             classes.push('erroredSelection');
           } else if (markAsSelection) {
@@ -46255,10 +46262,9 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         if (selects[label] && selects[label][d]) {
           let errorFound = selects[label][d].errorInfo || false;
           let markAsSelection = false;
-          console.log('Checking new table part for selection: ', selects[label][d]);
+          let sawGrouping = false;
 
           for (let objectIndex in selects[label][d]) {
-            console.log('Index: ' + objectIndex);
             if (errorFound && markAsSelection) {
               // Since we (currently) can't show multiple errors and are
               //   already marking as selected, no reason to continue.
@@ -46267,22 +46273,24 @@ function expand(node, id, d3, showAlertsOnFail = true) {
 
             if (selects[label][d][objectIndex].errorInfo) {
               errorFound = selects[label][d][objectIndex].errorInfo;
-              console.log('Error found.');
             }
 
             // Something being marked as a GROUP BY column does not imply that
             //   it is in the SELECT as well, do not mark prematurely. Also
             //   check if this array item isn't suddenly an errorInfo itself.
             if (selects[label][d][objectIndex].type !== 'groupby') {
-              console.log('Not a group by')
               if (typeof selects[label][d][objectIndex].result === 'undefined') {
-                console.log('selecting.')
                 markAsSelection = true;
               }
             }
+            else {
+              sawGrouping = true;
+            }
           }
 
-          if (errorFound) {
+          if (errorFound || (!markAsSelection && sawGrouping)) {
+            // For the second part there: column not selected but grouping on
+            //   means incorrect aggregation
             classes.push('erroredSelection');
           } else if (markAsSelection) {
             classes.push('selection');
@@ -46320,11 +46328,11 @@ function expand(node, id, d3, showAlertsOnFail = true) {
                               : selectObject.value + '<br>';
               colContents += textToAdd;
             }
-            else {
-              // This can trigger on errorInfo being in the array.
+            else if (typeof selects[label][d][objectIndex].result === 'undefined') {
+              // Check if this was an errorInfo entry (expected, but should not
+              //   be visualized), if it is also not that then report it.
               console.warn('selects[label][d][' + objectIndex + '] does not follow the '
                            + 'expected object structure. Ignoring.', selects[label][d]);
-              // colContents += selects[label][d][objectIndex] + '<br>';
             }
           }
 
@@ -46887,6 +46895,8 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
 
 
   let [selectedCols, aggrCols] = identifySelectCols(ast);
+  console.log('selectedCols:', selectedCols);
+  console.log('aggrCols:', aggrCols);
 
   if (ast.groupby) {
     let groupbyCols = [...ast.groupby];
@@ -47288,6 +47298,30 @@ function appendMultiErrorInfo(appendTo, origin, maxErrors=5) {
 }
 
 
+function findNodeForColumn(columnName, schema, nodes, level) {
+  // If there are multiple possible nodes in scope, but this function is being
+  //   called, there is an ambiguous reference here.
+  let nodesAtLevel = nodes.filter(node => node.level === level);
+  let nrNodesFound = 0;
+  let foundNode;
+
+  for (let nodeName in nodesAtLevel) {
+    let table = nodesAtLevel[nodeName].label;
+    let tableCols = schema[table];
+    if (!foundNode && tableCols.includes(columnName)) {
+      foundNode = nodesAtLevel[nodeName];
+      nrNodesFound++;
+    }
+  }
+
+  if (nrNodesFound > 1) {
+    console.warn('Ambiguous reference detected by findNodeForColumn. Returning first found node.');
+  }
+
+  return foundNode;
+}
+
+
 /**
 * Generates all the elements for the drawing, as well as drawing all the nodes and rectangles.
 * This fuction is called recursively to travel through the AST nested tree.
@@ -47473,7 +47507,15 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
         console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
-          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          // Find a corresponding node and add the error to it
+          let actualNode;
+          if (columnObj.table) {
+            actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          } else {
+            // A column obj may not have a table, e.g. with distinct col names.
+            actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
+          }
+          
           if (actualNode) {
             actualNode.errorInfo = columnObj.errorInfo;
             actualNode.isHighlighted = true;
@@ -47506,36 +47548,21 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           } else {
             tempSchema[columnObj.table || columnObj.as] = [column];
           }
-        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "table_ref_invalid_column") {
-          var nameForAlias = aliases[table];
-          if (nameForAlias) {
-            // Add this column to the schema
-            currentSchema[nameForAlias].push(column);
-          }
+        } else if (columnObj.errorInfo) {
           // Highlight the selection with red to show this column does not belong there
           selection[table][column].errorInfo = columnObj.errorInfo;
-          // Find a corresponding node and add the error to it
-          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
-          if (actualNode) {
-            actualNode.errorInfo = columnObj.errorInfo;
-            actualNode.isHighlighted = true;
-            actualNode.isExpanded = true;
-          } else {
-            // No node found, it might be a level, so we add error to the level
-            levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
-          }
-        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "with_ref_invalid_column") {
-          // WITH clauses are visualized by levels so we highlight the whole level
-          levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
-        } else if (columnObj.errorInfo && columnObj.errorInfo.type == "insufficientAgg") {
-          // There is no GROUP BY, but there should be. Mark the column and table.
-          selection[table][column].errorInfo = columnObj.errorInfo;
+          console.log('columnObj has errorInfo: ', columnObj);
 
           // Find a corresponding node and add the error to it
-          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          let actualNode;
+          if (columnObj.table) {
+            actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          } else {
+            // A column obj may not have a table, e.g. with distinct col names.
+            actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
+          }
+          
           if (actualNode) {
-            // TODO: (this applies to multiple locations!) errorInfo on the node
-            //   is used for tooltip generation. That should be moved to columns.
             actualNode.errorInfo = columnObj.errorInfo;
             actualNode.isHighlighted = true;
             actualNode.isExpanded = true;
@@ -47543,6 +47570,20 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
             // No node found, it might be a level, so we add error to the level
             levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
           }
+
+          if (columnObj.errorInfo.type == "table_ref_invalid_column") {
+            var nameForAlias = aliases[table];
+            if (nameForAlias) {
+              // Add this column to the schema
+              currentSchema[nameForAlias].push(column);
+            }
+          } else if (columnObj.errorInfo.type == "with_ref_invalid_column") {
+            // WITH clauses are visualized by levels so we highlight the whole level
+            levelsWithErrors.push({ name: columnObj.table, level: level+1, errorInfo: columnObj.errorInfo });
+          }
+          // Error types not explicitly mentioned here do not have any specific
+          //   handling, but the corresponding column and node are highlighted
+          //   and errorInfo is still attached.
         }
       }
     // If there is no star and this element is a SQL aggregation, add it to the list of aggregations.
@@ -47637,7 +47678,15 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           // Find a corresponding node and add the error to it
           console.warn('GROUP BY error being visualized, but method how should perhaps be different '
                        + '(without highlighting entire node, show tooltip on column hover.');
-          var actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          // Find a corresponding node and add the error to it
+          let actualNode;
+          if (columnObj.table) {
+            actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+          } else {
+            // A column obj may not have a table, e.g. with distinct col names.
+            actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
+          }
+          
           if (actualNode) {
             actualNode.errorInfo = columnObj.errorInfo;
             actualNode.isHighlighted = true;
