@@ -44477,7 +44477,8 @@ function removeTextBetweenBrackets(stringToChange) {
   }
 }
 
-
+// TODO: MARKED FOR DELETION! Currently unused, as WHERE with agg analysis
+//   was moved to AST analysis.
 function fixSingleWrongWhere(keywordsPerLevel, query) {
   // This function handles situations with a single WHERE with aggregation,
   //   and will only do anything if there is just one WHERE in the given level.
@@ -44576,6 +44577,8 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
                           'min', 'sum', 'total'];
   const whereLength = 'WHERE'.length; // Just to avoid magic numbers.
 
+  let issueLocationsToRemove = [];
+
   for (let levelName in keywordsPerLevel) {
     let levelKeywords = keywordsPerLevel[levelName].keywordArray;
     let levelMistakes = foundIssues[levelName];
@@ -44589,14 +44592,9 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           && mistake.mistakeWord[1][0] === 'where') {
         // This detected error was a double WHERE. If the second WHERE appears
         //   behind a GROUP BY, it likely should have been having instead.
-        // TODO: currently also still proccing on "contains agg", rm that.
-        // NOTE: also, yes I already disabled that for single WHERE.
         let secondWhereStart = mistake.detectedAtKeyword[1][1];
         let secondWhereEnd = mistake.detectedAtKeyword[1][2];
         let secondWhereSlice = returnObject.query.slice(secondWhereStart, secondWhereEnd + 1);
-        // let lowerSecondWhereSlice = lowercaseQuery.slice(secondWhereStart, secondWhereEnd);
-        // console.log('levelKeywords before starting WHERE check: ', JSON.parse(JSON.stringify(levelKeywords)));
-        // lowerSecondWhereSlice = removeTextBetweenBrackets(lowerSecondWhereSlice);
 
         // Check if a GROUP BY appears before the second WHERE. If so, it will
         //   be turned into a HAVING statement instead.
@@ -44706,8 +44704,27 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
             //   a new HAVING (to find & explain the error later).
             whereHavingFix += '->HAVING';
           }
+
           // Update the found mistake to reflect the change.
           mistake.handledBy = whereHavingFix;
+
+          // Since we fixed this WHERE based on it being behind a GROUP BY,
+          //   there must be a GROUP BY mistake as well based on this WHERE
+          //   coming after it. Find that "mistake" and remove it.
+          for (let mistakeToFixIndex in levelMistakes) {
+            let checkingMistake = levelMistakes[mistakeToFixIndex];
+            if (checkingMistake.detectedAtKeyword[1][1] === mistake.detectedAtKeyword[1][1]
+                && checkingMistake.detectedAtKeyword[1][2] === mistake.detectedAtKeyword[1][2]
+                && checkingMistake.mistakeWord[1][0] === 'group by') {
+              /* detectedAtKeyword starts & ends in the same locations, so it
+                   seems safe to assume it is the same keyword. Mistake is the
+                   GROUP BY statement, so now we know we have the right thing.
+                 Do not modify the array while iterating on it, so store index.
+              */
+              // console.log('Erroneous "GROUP BY early" error detected at index ' + mistakeToFixIndex);
+              issueLocationsToRemove.push([levelName, mistakeToFixIndex]);
+            }
+          }
 
         } else if (directlySubsequentWhere) {
           // Make the second where an AND of the first WHERE instead, and fill
@@ -44731,6 +44748,12 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
       }
     }
   }
+
+  for (let issueIndex in issueLocationsToRemove) {
+    let issueData = issueLocationsToRemove[issueIndex];
+    foundIssues[issueData[0]].splice(issueData[1], 1);
+  }
+  
   return returnObject;
 }
 
@@ -44953,7 +44976,6 @@ function attemptOrderingFix(query) {
   onlyKeepSubqueryBrackets(keywordStatus);
 
   addKeywordEndings(keywordStatus, query.length);
-  console.log(keywordStatus);
   // Now it SHOULD BE of the form:
   // [
   //   [ 'select', 0, 28 ],
@@ -46386,6 +46408,12 @@ function addSelection(selection, value, type, table, column, aliases) {
   // Check if there is an alias for this table
   // TODO: there may be an issue here - when a table is used multiple
   //   times and may have multiple aliases, the last one found is selected
+  console.log('Attempting to add selection with data:\n'
+              + 'Value: ' + value + '\n'
+              + 'Type: ' + type + '\n'
+              + 'Table: ' + table + '\n'
+              + 'Column: ' + column + '\n'
+              + 'Using aliases: ', aliases);
   for (var alias in aliases) {
     if (aliases[alias] == table) {
       table = alias;
@@ -47492,6 +47520,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
       var table = columnObj['table'] || getTable(column, schema, tables)[0];
       // Check if there is an alias for this table
+      // TODO: this causes the 'wrong table' problem in addSelection.
       for (alias in aliases) {
         if (aliases[alias] == table) {
           var table = alias;
@@ -47596,7 +47625,9 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       for (var i in nodes) {
         nodeTables[nodes[i].label]=nodes[i].alias || nodes[i].label;
       }
+
       // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
+      // TODO: this may be the cause of the 'wrong table' problem in addSelection.
       var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
       
       // It is only a selection if we select in the top level
@@ -47624,6 +47655,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         nodeTables[nodes[i].label]=nodes[i].alias || nodes[i].label;
       }
       // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
+      // TODO: this may be the cause of the 'wrong table' problem in addSelection.
       var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
 
       if (level == 0) {
@@ -47658,6 +47690,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       //   happen either way & otherwise errorInfo processing may break.
       var columnObj = ast.groupby[i];
       var column = columnObj.column;
+      // TODO: this may be the cause of the 'wrong table' problem in addSelection.
       var table = getTable(column, schema, tables)[0];
 
       aggregation = `GROUP (${parseInt(i)+1})`;
@@ -47675,9 +47708,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
           var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
           
-          // Find a corresponding node and add the error to it
-          console.warn('GROUP BY error being visualized, but method how should perhaps be different '
-                       + '(without highlighting entire node, show tooltip on column hover.');
           // Find a corresponding node and add the error to it
           let actualNode;
           if (columnObj.table) {
