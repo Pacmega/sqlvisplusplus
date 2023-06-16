@@ -46208,6 +46208,11 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           let markAsSelection = false;
           let sawGrouping = false;
 
+          // This is relevant because in subqueries, there may not be a
+          //   selection (because no vis highlighting) but that does not
+          //   directly imply an error outside of the root level.
+          let atRootLevel = selects[label][d][0].level === 0 ? true : false;
+
           for (let objectIndex in selects[label][d]) {
             if (errorFound && markAsSelection) {
               break;
@@ -46227,9 +46232,9 @@ function expand(node, id, d3, showAlertsOnFail = true) {
             }
           }
 
-          if (errorFound || (!markAsSelection && sawGrouping)) {
+          if (errorFound || (!markAsSelection && sawGrouping && atRootLevel)) {
             // For the second part there: column not selected but grouping on
-            //   means incorrect aggregation
+            //   means incorrect aggregation (in the case of the root level)
             console.log('Errored selection:', selects[label][d]);
             classes.push('erroredSelection');
           } else if (markAsSelection) {
@@ -46282,9 +46287,15 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         }
 
         if (selects[label] && selects[label][d]) {
+          console.log('selects: ', selects[label][d]);
           let errorFound = selects[label][d].errorInfo || false;
           let markAsSelection = false;
           let sawGrouping = false;
+
+          // This is relevant because in subqueries, there may not be a
+          //   selection (because no vis highlighting) but that does not
+          //   directly imply an error outside of the root level.
+          let atRootLevel = selects[label][d][0].level === 0 ? true : false;
 
           for (let objectIndex in selects[label][d]) {
             if (errorFound && markAsSelection) {
@@ -46310,9 +46321,9 @@ function expand(node, id, d3, showAlertsOnFail = true) {
             }
           }
 
-          if (errorFound || (!markAsSelection && sawGrouping)) {
+          if (errorFound || (!markAsSelection && sawGrouping && atRootLevel)) {
             // For the second part there: column not selected but grouping on
-            //   means incorrect aggregation
+            //   means incorrect aggregation (in the case of the root level)
             classes.push('erroredSelection');
           } else if (markAsSelection) {
             classes.push('selection');
@@ -46403,14 +46414,18 @@ function highlightNodes(graph, svg) {
     .style("stroke", "rgb(239, 52, 52)");
 }
 
+function createSelectionObject(value, type, level) {
+  return {'value': value,
+          'type': type,
+          'level': level};
+}
 
-function addSelection(selection, value, type, table, column, aliases) {
+function addSelection(selection, selectionObject, table, column, aliases) {
   // Check if there is an alias for this table
   // TODO: there may be an issue here - when a table is used multiple
   //   times and may have multiple aliases, the last one found is selected
   console.log('Attempting to add selection with data:\n'
-              + 'Value: ' + value + '\n'
-              + 'Type: ' + type + '\n'
+              + 'selectionObject: ' + selectionObject + '\n'
               + 'Table: ' + table + '\n'
               + 'Column: ' + column + '\n'
               + 'Using aliases: ', aliases);
@@ -46427,15 +46442,15 @@ function addSelection(selection, value, type, table, column, aliases) {
   if (table in selection) {
     if (column in selection[table]) {
       if (selection[table][column] == '') {
-        selection[table][column] = [{'value': value, 'type': type}];
+        selection[table][column] = [selectionObject];
       } else {
-        selection[table][column].push({'value': value, 'type': type});
+        selection[table][column].push(selectionObject);
       }
     } else {
-      selection[table][column] = [{'value': value, 'type': type}];
+      selection[table][column] = [selectionObject];
     }
   } else {
-    var newObj = {[column]: [{'value': value, 'type': type}]};
+    var newObj = {[column]: [selectionObject]};
     selection[table] = newObj;
   }
 
@@ -47492,7 +47507,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       }
     }
 
-    if (columnObj == '*' && level == 0) {
+    if (columnObj == '*' /*&& level == 0*/) {
       /* FIXME: this appears to contain a bug (description below)!
          SELECT * on multiple tables does not mark all tables
          (but SQLite does return cart. prod. results). Likely
@@ -47546,7 +47561,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       if (table in selection) {
         // We previously already saw a column in this table being selected.
         // Also include a selection for this new column.
-        selection = addSelection(selection, '', 'selection', table, column, aliases);
+        let selectionObject = createSelectionObject('', 'selection', level);
+        selection = addSelection(selection, selectionObject, table, column, aliases);
 
         console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
@@ -47566,7 +47582,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           }
         }
       } else {
-        selection = addSelection(selection, '', 'selection', table, column, aliases);
+        let selectionObject = createSelectionObject('', 'selection', level);
+        selection = addSelection(selection, selectionObject, table, column, aliases);
         // selection[table] = {[column]: ['']}; // Pac: this was here before
         console.log('First selection column added in ' + table, selection);
         // Maybe selection also contains an error
@@ -47646,7 +47663,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       
       // It is only a selection if we select in the top level
       if (level == 0) {
-        selection = addSelection(selection, aggregation, 'aggregation', table, column, aliases);
+        let selectionObject = createSelectionObject(aggregation, 'aggregation', level);
+        selection = addSelection(selection, selectionObject, table, column, aliases);
       } else {
         // Else we only need to add the aggregation string.
         var subCondition = {};
@@ -47673,7 +47691,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
 
       if (level == 0) {
-        selection = addSelection(selection, aggregation, 'Selection type?', table, column, aliases);
+        let selectionObject = createSelectionObject(aggregation, 'Selection type?', level);
+        selection = addSelection(selection, selectionObject, table, column, aliases);
       } else {
         // Else we only need to add the aggregation string.
         var subCondition = {};
@@ -47695,7 +47714,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   
   // Find if there is a groupby clause.
   if (ast.groupby != null) {
-    const visualizableErrors = ['Early keyword', 'Late keyword'];
+    // const visualizableErrors = ['Early keyword', 'Late keyword'];
     for (var i in ast.groupby) {
       // Most errors break the GROUP BY, but early/late keywords should be
       //   visualized as if functional but marked with an error.
@@ -47721,11 +47740,12 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
       aggregation = `GROUP (${parseInt(i)+1})`;
 
-      selection = addSelection(selection, aggregation, 'groupby', table, column, aliases);
+      let selectionObject = createSelectionObject(aggregation, 'groupby', level);
+      selection = addSelection(selection, selectionObject, table, column, aliases);
       setSelections(selection);
 
       if (ast.groupby[i].errorInfo) {
-        if (visualizableErrors.includes(ast.groupby[i].errorInfo.type)) {
+        // if (visualizableErrors.includes(ast.groupby[i].errorInfo.type)) {
           /* TODO: how to visualize this specific entry as an error while not breaking more?
                Probably in a way similar to the else, but with the text somehow. This is very
                much a WIP and likely also broken.
@@ -47752,21 +47772,21 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           // Also add the error to the selection, to include in the shown tables
           selection[table][column].errorInfo = columnObj.errorInfo;
 
-        } else {
-          // Find a corresponding node and add the error to it
-          var columnObj = ast.groupby[i];
-          // The table is either specified or we get it manually from the schema
-          table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
-          var actualNode = nodes.find(n => n.label == table || n.alias == table);
-          if (actualNode) {
-            actualNode.errorInfo = columnObj.errorInfo;
-            actualNode.isHighlighted = true;
-            actualNode.isExpanded = true;
-          } else {
-            // No node found, it might be a level, so we add error to the level
-            levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
-          }
-        }
+        // } else {
+        //   // Find a corresponding node and add the error to it
+        //   var columnObj = ast.groupby[i];
+        //   // The table is either specified or we get it manually from the schema
+        //   table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
+        //   var actualNode = nodes.find(n => n.label == table || n.alias == table);
+        //   if (actualNode) {
+        //     actualNode.errorInfo = columnObj.errorInfo;
+        //     actualNode.isHighlighted = true;
+        //     actualNode.isExpanded = true;
+        //   } else {
+        //     // No node found, it might be a level, so we add error to the level
+        //     levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
+        //   }
+        // }
       }
     }
   }
