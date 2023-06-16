@@ -46414,9 +46414,13 @@ function addSelection(selection, value, type, table, column, aliases) {
               + 'Table: ' + table + '\n'
               + 'Column: ' + column + '\n'
               + 'Using aliases: ', aliases);
-  for (var alias in aliases) {
-    if (aliases[alias] == table) {
-      table = alias;
+  if (!Object.keys(aliases).includes(table)) {
+    // The table given was not already an alias, so check if the passed
+    //   table needs to be aliased.
+    for (var alias in aliases) {
+      if (aliases[alias] == table) {
+        table = alias;
+      }
     }
   }
 
@@ -47518,9 +47522,19 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     } else if (columnObj['type'] == 'column_ref' && level == 0) {
       var column = columnObj['column'];
 
-      var table = columnObj['table'] || getTable(column, schema, tables)[0];
+      // TODO: using nodeTables here is a new addition, and I am not 100%
+      //   certain that it does not introduce any unintended behavior.
+      // var nodeTables = {};
+      // for (var i in nodes) {
+      //   nodeTables[nodes[i].label]=nodes[i].alias || nodes[i].label;
+      // }
+
+      // var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
+      
       // Check if there is an alias for this table
-      // TODO: this causes the 'wrong table' problem in addSelection.
+      // TODO: this causes the 'wrong table' problem in addSelection, currently
+      //   commented while the nodeTables approach is being tested.
+      var table = columnObj['table'] || getTable(column, schema, tables)[0];
       for (alias in aliases) {
         if (aliases[alias] == table) {
           var table = alias;
@@ -47690,8 +47704,20 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       //   happen either way & otherwise errorInfo processing may break.
       var columnObj = ast.groupby[i];
       var column = columnObj.column;
-      // TODO: this may be the cause of the 'wrong table' problem in addSelection.
-      var table = getTable(column, schema, tables)[0];
+      // TODO: This is kind of a workaround and can likely be done more
+      //   efficiently. Using the node finding approach to find the node with
+      //   the correct alias, as addSelection's own search may find the wrong
+      //   alias for a table.
+      // let nodeForAlias;
+      // if (table) {
+      //   nodeForAlias = nodes.find(n => n.label == table || n.alias == table);
+      // } else {
+      //   // A column obj may not have a table, e.g. with distinct col names.
+      //   nodeForAlias = findNodeForColumn(columnObj.column, schema, nodes, level);
+      // }
+
+      // let table = nodeForAlias.alias ? nodeForAlias.alias : nodeForAlias.label;
+      let table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
 
       aggregation = `GROUP (${parseInt(i)+1})`;
 
@@ -47706,7 +47732,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           */
 
           // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
-          var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
+          table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
           
           // Find a corresponding node and add the error to it
           let actualNode;
@@ -47730,7 +47756,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
           // Find a corresponding node and add the error to it
           var columnObj = ast.groupby[i];
           // The table is either specified or we get it manually from the schema
-          var table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
+          table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
           var actualNode = nodes.find(n => n.label == table || n.alias == table);
           if (actualNode) {
             actualNode.errorInfo = columnObj.errorInfo;
@@ -48131,7 +48157,6 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
       // If no table is specified, it may still be a column, or it may be a condition.
       if (table == null) {
         var result = getTable(column, schema, tables);
-        var table;
         // find out what the table name is
         if (addNodeForRight) {
           if (idRight) { // in case id exists, always use it
@@ -48201,7 +48226,7 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
         }
       }
     } else {
-      console.log('Some other type of node occurred!' + node.right.type);
+      console.warn('Unhandled node type in getLinks: ' + node.right.type);
     }
     return {nodes: nodes, links: [link]};
   }
