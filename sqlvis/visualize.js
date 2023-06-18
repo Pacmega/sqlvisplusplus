@@ -44138,7 +44138,8 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
           }
 
           let issue = {mistakeWord: [seenKeywordIndexInt, [...seenKeywordData[seenKeywordIndexInt]]],
-                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]]};
+                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]],
+                       issue: 'early'};
           foundIssues[levelName].push(issue);
         } else if (keywordIndex === seenKeywordIndexInt) {
           // Another copy of keyword found.
@@ -44151,7 +44152,8 @@ function findKeywordIssuesPerLevel(keywordsPerLevel) {
           }
 
           let issue = {mistakeWord: [seenKeywordIndexInt, [...seenKeywordData[seenKeywordIndexInt]]],
-                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]]};
+                       detectedAtKeyword: [keywordIndex, [...keywordList[i]]],
+                       issue: 'early'};
           foundIssues[levelName].push(issue);
         }
         // else: everything is fine, no issue to track
@@ -44295,15 +44297,15 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
 
     // Move the biggest found mistake to where the current main mistake is, and
     //   remove all the other smaller related mistake logs.
-
-    // Only modify if the current arrayIndex wasn't already biggestMistake.
+    let biggestMistakeData = {'mistakeWord':
+                                [...mistakeList[biggestMistakeWord.mistakeIndex].mistakeWord],
+                              'detectedAtKeyword':
+                                [...mistakeList[biggestMistakeWord.mistakeIndex].detectedAtKeyword],
+                              'issue': 'early'
+                             };
+    mistakeList[arrayIndex] = biggestMistakeData;
+      
     if (biggestMistakeWord.mistakeIndex !== arrayIndex) {
-      let biggestMistakeData = {'mistakeWord':
-                                  [...mistakeList[biggestMistakeWord.mistakeIndex].mistakeWord],
-                                'detectedAtKeyword':
-                                  [...mistakeList[biggestMistakeWord.mistakeIndex].detectedAtKeyword]
-                               };
-      mistakeList[arrayIndex] = biggestMistakeData;
       mistakeIndicesToDrop.push(biggestMistakeWord.mistakeIndex);
     }
 
@@ -44355,15 +44357,15 @@ function onlyKeepBiggestMistakes(mistakeList, arrayIndex=0) {
 
     // Move the biggest found mistake to where the current main mistake is, and
     //   remove all the other smaller related mistake logs.
-
-    // Only modify if the current arrayIndex wasn't already biggestMistake.
+    let smallestDetectedAtData = {'mistakeWord':
+                                    [...mistakeList[smallestDetectedAtWord.mistakeIndex].mistakeWord],
+                                  'detectedAtKeyword':
+                                    [...mistakeList[smallestDetectedAtWord.mistakeIndex].detectedAtKeyword],
+                                  'issue': 'late'
+                             };
+    mistakeList[arrayIndex] = smallestDetectedAtData;
+    
     if (smallestDetectedAtWord.mistakeIndex !== arrayIndex) {
-      let smallestDetectedAtData = {'mistakeWord':
-                                      [...mistakeList[smallestDetectedAtWord.mistakeIndex].mistakeWord],
-                                    'detectedAtKeyword':
-                                      [...mistakeList[smallestDetectedAtWord.mistakeIndex].detectedAtKeyword]
-                               };
-      mistakeList[arrayIndex] = smallestDetectedAtData;
       mistakeIndicesToDrop.push(smallestDetectedAtWord.mistakeIndex);
     }
 
@@ -45029,7 +45031,6 @@ function attemptOrderingFix(query) {
   //   the real mistakes, and not also every smaller version of them.
   for (let levelName in foundIssues) {
     let levelMistakes = foundIssues[levelName];
-    let levelKeywords = keywordsPerLevel[levelName].keywordArray;
 
     onlyKeepBiggestMistakes(levelMistakes);
   }
@@ -45438,15 +45439,9 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           //   on the HAVING clause -> this is either the only L-R combo,
           //   or the last one meaning the part that was moved there
           subqueryRoot = findNtoLastFullBranch(subqueryRoot.having, havingErrorInNthToLast);
-          // These down here were the original.
-          // errorMessage = 'You used the WHERE keyword here, but this needed to be '
-          //                + 'HAVING because of either the placement of this part of '
-          //                + 'your query or the use of aggregation in it.';
-          // errorTitle = 'WHERE should be HAVING';
           newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
           havingErrorInNthToLast++;
-          // console.log('V2    - WHERE->HAVING');
 
         } else if (issue.handledBy === 'WHERE->AND') {
           // Leave a mistake marker on the root of the last left-right combo
@@ -45460,7 +45455,6 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           insertErrorInfo(subqueryRoot.left, newErrorInfo);
           insertErrorInfo(subqueryRoot.right, newErrorInfo);
           whereErrorInNthToLast++;
-          // console.log('V2    - WHERE->AND');
 
         } else if (issue.handledBy === 'HAVING->AND') {
           // Leave a mistake marker on the root of the last left-right combo
@@ -45489,62 +45483,40 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           errorTitle = 'Incorrect usage of GROUP BY';
           newErrorInfo = makeErrorInfo(issue.handledBy, errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot, newErrorInfo);
-          // console.log('V1    - WHERE->AND');
-
         } else {
           throw Error('Unhandled handledBy issue type: ' + issue.handledBy);
         }
       } else {
-        if (issue.detectedAtKeyword[0] < issue.mistakeWord[0]) {
-          // MistakeWord appeared too early. Go to detectedAtKeyword in
-          //   the AST and mark it as appearing later than it should. Also
+        if (issue.issue === 'early') {
+          // mistakeWord appeared too early. Go there in
+          //   the AST and mark it as appearing earlier than it should. Also
           //   mention what it should be in front of.
-
-          // TODO: Is this message even correct?
           errorMessage = 'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared earlier '
                          + 'than it is supposed to. It is meant to be used after the keyword '
                          + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
           errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
           newErrorInfo = makeErrorInfo('Early keyword', errorMessage, errorTitle);
           insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
-          // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
-          //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
-          //            + 'earlier than it is supposed to. It is meant to be used after the keyword '
-          //            + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
-          // console.log('V2    - EARLY KEYWORD');
-
-        } else { // issue.detectedAtKeyword[0] > issue.mistakeWord[0]
-          // MistakeWord appeared too late. Go to mistakeWord in the AST
+        } else if (issue.issue === 'late') {
+          // detectedAtKeyword appeared too late. Go there in the AST
           //   and mark it as appearing later than it should. Also mention
           //   what it should be in front of.
 
-          // TODO: Unsure if this code & message are fully correct
-          // TODO: Code coverage shows this if branch is not covered!
-          //   ^ This hints toward a likely issue earlier on with detecting biggest errors.
-          console.warn('LATE keyword detected successfully \\o/')
-          errorMessage = 'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared later '
+          // TODO: does testing cover this segment of code now? It did not before.
+          errorMessage = 'Your ' + issue.detectedAtKeyword[1][0].toUpperCase() + ' keyword appeared later '
                          + 'than it is supposed to. It is meant to be used before the keyword '
-                         + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.';
-          errorTitle = issue.mistakeWord[1][0].toUpperCase() + ' in incorrect location';
+                         + issue.mistakeWord[1][0].toUpperCase() + ' in your query.';
+          errorTitle = issue.detectedAtKeyword[1][0].toUpperCase() + ' in incorrect location';
           newErrorInfo = makeErrorInfo('Late keyword', errorMessage, errorTitle);
-          insertErrorInfo(subqueryRoot[keywordToASTName(issue.mistakeWord[1][0])], newErrorInfo);
-
-          // addMistake(subqueryRoot, [keywordToASTName(issue.mistakeWord[1][0])],
-          //            'Your ' + issue.mistakeWord[1][0].toUpperCase() + ' keyword appeared '
-          //            + 'later than it is supposed to. It is meant to be used before the keyword ' 
-          //            + issue.detectedAtKeyword[1][0].toUpperCase() + ' in your query.');
-          // console.log('V1    - LATE KEYWORD');
+          insertErrorInfo(subqueryRoot[keywordToASTName(issue.detectedAtKeyword[1][0])], newErrorInfo);
         }
         // For issue.mistakeWord[0] === issue.detectedAtKeyword[0] there are 2
-        //   options: repeated WHERE, which should be handled already, or
+        //   options: repeated WHERE/HAVING, which should be handled already, or
         //   repeated anything else was not handled earlier and so cannot be
-        //   parsed (so we wouldn't have made it here in the first place)
+        //   parsed (so we wouldn't have made it here in the first place).
       }
-      // console.log(subqueryRoot);
-      // console.log(newErrorInfo);
     }
   }
-  // console.log(util.inspect(ast, false, null, true));
 }
 
 
@@ -47439,11 +47411,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     if (tableObject.errorInfo) {
       appendMultiErrorInfo(nodeToAdd, tableObject);
     }
-    
-    // if (nodeToAdd.errorInfo) {
-      // console.log(util.inspect(nodeToAdd, false, null, true));
-    //   console.log(nodeToAdd);
-    // }
 
     nodes.push(nodeToAdd);
 
@@ -47455,7 +47422,8 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         /* TODO: error prop untested (and atm also disabled) */
         let subqueryError = {
           name: tableObject.as,
-          level: level+1
+          level: level+1,
+          errorInfo: tableObject.expr.errorInfo
         };
         // Add this way, as it is possible tableObject has multiple errorInfo items.
         // if tableObject.errorInfo {
@@ -47491,18 +47459,33 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
 
     var columnObj = ast.columns[index]['expr'] || '*';
     
-    // TODO: not sure yet if this will be used this way!
     // Using != because for loop index is a string, not a number
-    if (repeatSelectError && index != 0) {
+    if (repeatSelectError) {
       if (typeof ast.columns[index]['expr'] !== 'undefined') {
         columnObj.errorInfo = repeatSelectError;
+
+        // NOTE: Forcing this here but also checking again later on may result
+        //   in unnecessary double execution of finding and highlighting node.
+        console.log('Forcing error for selection, whether at level 0 or not.');
+        let actualNode;
+        if (columnObj.table) {
+          actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+        } else {
+          // A column obj may not have a table, e.g. with distinct col names.
+          actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
+        }
+        
+        if (actualNode) {
+          actualNode.errorInfo = columnObj.errorInfo;
+          actualNode.isHighlighted = true;
+          actualNode.isExpanded = true;
+        }
       } else {
-        console.warn('I don\'t know yet what to do here, but it should be something.\n'
-                    + 'columnObj === ', columnObj, ', but how to work with that?');
+        console.warn('SELECT error repeating to propagate error on columns[0] failed.');
       }
     }
 
-    if (columnObj == '*' /*&& level == 0*/) {
+    if (columnObj == '*' && level == 0) {
       /* FIXME: this appears to contain a bug (description below)!
          SELECT * on multiple tables does not mark all tables
          (but SQLite does return cart. prod. results). Likely
@@ -47532,18 +47515,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     } else if (columnObj['type'] == 'column_ref' && level == 0) {
       var column = columnObj['column'];
 
-      // TODO: using nodeTables here is a new addition, and I am not 100%
-      //   certain that it does not introduce any unintended behavior.
-      // var nodeTables = {};
-      // for (var i in nodes) {
-      //   nodeTables[nodes[i].label]=nodes[i].alias || nodes[i].label;
-      // }
-
-      // var table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
-      
       // Check if there is an alias for this table
-      // TODO: this causes the 'wrong table' problem in addSelection, currently
-      //   commented while the nodeTables approach is being tested.
       var table = columnObj['table'] || getTable(column, schema, tables)[0];
       for (alias in aliases) {
         if (aliases[alias] == table) {
@@ -47704,28 +47676,16 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
   
   // Find if there is a groupby clause.
   if (ast.groupby != null) {
-    // const visualizableErrors = ['Early keyword', 'Late keyword'];
     for (var i in ast.groupby) {
-      // Most errors break the GROUP BY, but early/late keywords should be
-      //   visualized as if functional but marked with an error.
-
       // Always create the aggregation & add it to the selection, this needs to
       //   happen either way & otherwise errorInfo processing may break.
       var columnObj = ast.groupby[i];
       var column = columnObj.column;
-      // TODO: This is kind of a workaround and can likely be done more
-      //   efficiently. Using the node finding approach to find the node with
-      //   the correct alias, as addSelection's own search may find the wrong
-      //   alias for a table.
-      // let nodeForAlias;
-      // if (table) {
-      //   nodeForAlias = nodes.find(n => n.label == table || n.alias == table);
-      // } else {
-      //   // A column obj may not have a table, e.g. with distinct col names.
-      //   nodeForAlias = findNodeForColumn(columnObj.column, schema, nodes, level);
-      // }
 
-      // let table = nodeForAlias.alias ? nodeForAlias.alias : nodeForAlias.label;
+      if (repeatGroupByError && i != 0) {
+        columnObj.errorInfo = repeatGroupByError;
+      }
+
       let table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
 
       aggregation = `GROUP (${parseInt(i)+1})`;
@@ -47734,49 +47694,27 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       selection = addSelection(selection, selectionObject, table, column, aliases);
       setSelections(selection);
 
-      if (ast.groupby[i].errorInfo) {
-        // if (visualizableErrors.includes(ast.groupby[i].errorInfo.type)) {
-          /* TODO: how to visualize this specific entry as an error while not breaking more?
-               Probably in a way similar to the else, but with the text somehow. This is very
-               much a WIP and likely also broken.
-          */
+      if (columnObj.errorInfo) {
+        // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
+        table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
+        
+        // Find a corresponding node and add the error to it
+        let actualNode;
+        if (columnObj.table) {
+          actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
+        } else {
+          // A column obj may not have a table, e.g. with distinct col names.
+          actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
+        }
+        
+        if (actualNode) {
+          actualNode.errorInfo = columnObj.errorInfo;
+          actualNode.isHighlighted = true;
+          actualNode.isExpanded = true;
+        }
 
-          // There may be more instances of a table, so check if we get the correct alias (present in this subquery).
-          table = columnObj['table'] || nodeTables[getTable(column, schema, tables)[0]];
-          
-          // Find a corresponding node and add the error to it
-          let actualNode;
-          if (columnObj.table) {
-            actualNode = nodes.find(n => n.label == columnObj.table || n.alias == columnObj.table);
-          } else {
-            // A column obj may not have a table, e.g. with distinct col names.
-            actualNode = findNodeForColumn(columnObj.column, schema, nodes, level);
-          }
-          
-          if (actualNode) {
-            actualNode.errorInfo = columnObj.errorInfo;
-            actualNode.isHighlighted = true;
-            actualNode.isExpanded = true;
-          }
-
-          // Also add the error to the selection, to include in the shown tables
-          selection[table][column].errorInfo = columnObj.errorInfo;
-
-        // } else {
-        //   // Find a corresponding node and add the error to it
-        //   var columnObj = ast.groupby[i];
-        //   // The table is either specified or we get it manually from the schema
-        //   table = ast.groupby[i].table ? ast.groupby[i].table : getTable(column, schema, tables)[0];
-        //   var actualNode = nodes.find(n => n.label == table || n.alias == table);
-        //   if (actualNode) {
-        //     actualNode.errorInfo = columnObj.errorInfo;
-        //     actualNode.isHighlighted = true;
-        //     actualNode.isExpanded = true;
-        //   } else {
-        //     // No node found, it might be a level, so we add error to the level
-        //     levelsWithErrors.push({ name: table, level: level+1, errorInfo: columnObj.errorInfo });
-        //   }
-        // }
+        // Also add the error to the selection, to include in the shown tables
+        selection[table][column].errorInfo = columnObj.errorInfo;
       }
     }
   }
@@ -47807,10 +47745,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
     links = links.concat(subLinks);
   }
 
-  /* TODO: this function is still a work in progress. Aiming to generate the
-     same visual result for now, but should change. That shouldn't really be
-     the case in the final version.
-  */
   if (ast.having != null) {
     var [subNodes, subLinks] = generateGraphExpression(
       element, ast.having, aliases, schema, level, parent, tables, nodes, links, parent, level, 'having');
@@ -47838,7 +47772,6 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     if (ast.errorInfo) {
       // There was errorInfo put on the root of this. Propagating it into
       //   each side of the predicate gets it picked up in the processing.
-      // TODO: just insert that errorInfo there in the first place
       insertErrorInfo(ast.left, ast.errorInfo);
       insertErrorInfo(ast.right, ast.errorInfo);
     }
@@ -47944,9 +47877,9 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
           link.error = true;
           link.errorInfo = ast.errorInfo;
           
-          // Make link text red here, as standard getLinks implementation
-          //   will only color if both sides of this link are leaves but
-          //   one is a subquery in this case
+          // Make link text red here now. Function getLinks later on
+          //   will only color if both sides of this link are leaves, but
+          //   one is a subquery in this case.
           link.label.splice(0, 0, "<span style='color:#FF0000'>");
           link.label.push("</span>");
 
@@ -48002,9 +47935,9 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
           link.error = true;
           link.errorInfo = ast.errorInfo;
           
-          // Make link text red here, as standard getLinks implementation
-          //   will only color if both sides of this link are leaves but
-          //   one is a subquery in this case
+          // Make link text red here now. Function getLinks later on
+          //   will only color if both sides of this link are leaves, but
+          //   one is a subquery in this case.
           link.label.splice(0, 0, "<span style='color:#FF0000'>");
           link.label.push("</span>");
 

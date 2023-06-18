@@ -13,3 +13,22 @@ SQLVis issues:
 
 - SELECT * on multiple tables does not mark all tables (but SQLite does return cart. prod. results).
   Likely cause: within generateGraphTopLevel, during the iteration over ast.columns, if columnObj == '*' a selection is made where table = ast.from[0]['table']. Because of this, only the table that happens to be first in the AST is highlighted instead of all relevant tables.
+
+- In the query below, `co.sName` is not marked as selected, and instead only the condition is shown. This is caused by the concept of "only highlight selections at root level of query": `co` is a WITH statement, which is a subquery for vis purposes.
+Query to reproduce this with:
+WITH confusion AS (
+    SELECT s1.sName, s1.city
+    FROM store AS s1
+    WHERE s1.sName LIKE '%e%'
+    GROUP BY s1.city
+    HAVING s1.city IN (SELECT c1.city
+                       FROM customer AS c1
+                       GROUP BY c1.city
+                       HAVING COUNT(c1.cID) > 20
+                      )
+    )
+
+SELECT co.sName, pur.date
+FROM confusion AS co, purchase AS pur, store as s2
+WHERE s2.sName = co.sName
+AND s2.sID = pur.sID
