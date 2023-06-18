@@ -45837,51 +45837,50 @@ function drawGraph(vertices, links, container, d3, schema) {
   }
   console.log("This graph's levels: ", levels);
   if (levels.length > 1) {
-      var colors = ['empty', '#B1A7EF', '#8777EF', '#5E47EF'];
+    var colors = ['empty', '#B1A7EF', '#8777EF', '#5E47EF'];
 
-      // Create node groups for each subquery
-      for (var i in levels) {
-        if (levels[i] != 0) {
-          if (levels[i].length > 1) {
-            var color = colors[parseInt(levels[i].slice(-1))];
-            var parentLevel = levels[i].slice(0, -2)
-            if (parentLevel in levels) {
-              var parentName
-              var childName
-              for (var j in vertices) {
-                if(vertices[j].level == parentLevel) {
-                  parentName = vertices[j].parent
-                } else if (vertices[j].level == levels[i]) {
-                  childName = vertices[j].parent
-                }
-              }
-              if (typeof parentName == 'string' && typeof childName == 'string') {
-                graph.setParent(parentName, childName)
+    // Create node groups for each subquery
+    for (var i in levels) {
+      if (levels[i] != 0) {
+        if (levels[i].length > 1) {
+          var color = colors[parseInt(levels[i].slice(-1))];
+          var parentLevel = levels[i].slice(0, -2)
+          if (parentLevel in levels) {
+            var parentName
+            var childName
+            for (var j in vertices) {
+              if(vertices[j].level == parentLevel) {
+                parentName = vertices[j].parent
+              } else if (vertices[j].level == levels[i]) {
+                childName = vertices[j].parent
               }
             }
-          } else {
-            color = colors[levels[i]];
+            if (typeof parentName == 'string' && typeof childName == 'string') {
+              graph.setParent(parentName, childName)
+            }
           }
-          //If this is an unnamed subquery, create a subquery container for it
-      var levelError = levelsWithErrors.find(l => l.level == levels[i]);
-      // If the levelError has a name associated to it, then it is not for an unnamed subquery
-      if (levelError && !levelError.name) {
-        graph.setNode(levels[i].toString(), {
-          label: '',
-          clusterLabelPos: 'top',
-          style: 'fill: ' + color + '40; stroke-width: 1px; stroke: #FF0000',
-          errorInfo: levelError.errorInfo
+        } else {
+          color = colors[levels[i]];
+        }
+        //If this is an unnamed subquery, create a subquery container for it
+        var levelError = levelsWithErrors.find(l => l.level == levels[i]);
+        // If the levelError has a name associated to it, then it is not for an unnamed subquery
+        if (levelError && !levelError.name) {
+          graph.setNode(levels[i].toString(), {
+            label: '',
+            clusterLabelPos: 'top',
+            style: 'fill: ' + color + '40; stroke-width: 1px; stroke: #FF0000',
+            errorInfo: levelError.errorInfo
           });
-      } else {
-        graph.setNode(levels[i].toString(), {
-        label: '',
-        clusterLabelPos: 'top',
-        style: 'fill: ' + color + '40; stroke-width: 0px; stroke: ' + color
-        });
-      }
+        } else {
+          graph.setNode(levels[i].toString(), {
+            label: '',
+            clusterLabelPos: 'top',
+            style: 'fill: ' + color + '40; stroke-width: 0px; stroke: ' + color
+          });
         }
       }
-
+    }
 
     for (var v in vertices) {
       // Check if vertex is part of a view.
@@ -46235,10 +46234,8 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           if (errorFound || (!markAsSelection && sawGrouping && atRootLevel)) {
             // For the second part there: column not selected but grouping on
             //   means incorrect aggregation (in the case of the root level)
-            console.log('Errored selection:', selects[label][d]);
             classes.push('erroredSelection');
           } else if (markAsSelection) {
-            console.log('Normal selection:', selects[label][d]);
             classes.push('selection');
           }
         }
@@ -46287,7 +46284,6 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         }
 
         if (selects[label] && selects[label][d]) {
-          console.log('selects: ', selects[label][d]);
           let errorFound = selects[label][d].errorInfo || false;
           let markAsSelection = false;
           let sawGrouping = false;
@@ -46422,13 +46418,14 @@ function createSelectionObject(value, type, level) {
 
 function addSelection(selection, selectionObject, table, column, aliases) {
   // Check if there is an alias for this table
-  // TODO: there may be an issue here - when a table is used multiple
-  //   times and may have multiple aliases, the last one found is selected
-  console.log('Attempting to add selection with data:\n'
-              + 'selectionObject: ' + selectionObject + '\n'
-              + 'Table: ' + table + '\n'
-              + 'Column: ' + column + '\n'
-              + 'Using aliases: ', aliases);
+  // TODO: issue here - if the table passed is not already an alias, and
+  //   the intended table is used multiple times and may have multiple
+  //   aliases, the last one found is selected.
+  // console.log('Attempting to add selection with data:\n'
+  //             + 'selectionObject: ' + selectionObject + '\n'
+  //             + 'Table: ' + table + '\n'
+  //             + 'Column: ' + column + '\n'
+  //             + 'Using aliases: ', aliases);
   if (!Object.keys(aliases).includes(table)) {
     // The table given was not already an alias, so check if the passed
     //   table needs to be aliased.
@@ -46942,8 +46939,6 @@ function analyzeGroupingAgg(element, ast, aliases, schema, level, parent) {
 
 
   let [selectedCols, aggrCols] = identifySelectCols(ast);
-  console.log('selectedCols:', selectedCols);
-  console.log('aggrCols:', aggrCols);
 
   if (ast.groupby) {
     let groupbyCols = [...ast.groupby];
@@ -47556,15 +47551,12 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         }
       }
 
-      console.log('Column obj under investigation:', columnObj);
-
       if (table in selection) {
         // We previously already saw a column in this table being selected.
         // Also include a selection for this new column.
         let selectionObject = createSelectionObject('', 'selection', level);
         selection = addSelection(selection, selectionObject, table, column, aliases);
 
-        console.log('Extra column added in existing ' + table + ' selection', selection);
         if (columnObj.errorInfo) {
           // Find a corresponding node and add the error to it
           let actualNode;
@@ -47584,8 +47576,7 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
       } else {
         let selectionObject = createSelectionObject('', 'selection', level);
         selection = addSelection(selection, selectionObject, table, column, aliases);
-        // selection[table] = {[column]: ['']}; // Pac: this was here before
-        console.log('First selection column added in ' + table, selection);
+
         // Maybe selection also contains an error
         if (columnObj.errorInfo && columnObj.errorInfo.type == "invalid_table_ref") {
           // Create a missing table reference node
@@ -47611,7 +47602,6 @@ function generateGraphTopLevel(element, ast, aliases, schema, level, parent) {
         } else if (columnObj.errorInfo) {
           // Highlight the selection with red to show this column does not belong there
           selection[table][column].errorInfo = columnObj.errorInfo;
-          console.log('columnObj has errorInfo: ', columnObj);
 
           // Find a corresponding node and add the error to it
           let actualNode;
@@ -47912,8 +47902,10 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     }
     else if (linkType === 'having') {
       if (ast.right.type == 'select') {
-        console.warn('HAVING with subquery on the right. Not sure how to trigger this, bc subqueries are not this? '
-                     + 'Current handling is likely to be incorrect, it is a copy paste of the WHERE approach.');
+        // Triggered via e.g. "[thing] < [subquery]"
+
+        var links = [];
+
         //something left
         // No link needs to be generated as it is not possible to connect an edge to a container.
 
@@ -47922,11 +47914,53 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
           element,
           ast.right,
           aliases, schema,
-          level + 1, level);
+          level + 1, ast.operator);
 
-        return [rNodes, rLinks];
+        links = links.concat(rLinks);
+
+        //Add the link for where x not in y
+        var column = ast.left.column;
+        var table = ast.left.table || getTable(column, schema, tables)[0];
+
+        // Check if there is an alias for this table
+        for (var alias in aliases) {
+          if (aliases[alias] == table) {
+            var tableA = alias;
+          }
+        }
+
+        var operator = ast.operator;
+        var link = {};
+        link.sourceAlias = tableA || table;
+        link.source = tableA || table;
+        link.targetAlias = operator;
+        link.target = operator;
+        link.label = [column + ' ' + operator];
+        link.type = 'link';
+
+        if (ast.errorInfo) {
+          // ErrorInfo on the root of the HAVING, aka this "HAVING" was changed
+          //   (e.g. may have been a WHERE before but was adjusted).
+          link.error = true;
+          link.errorInfo = ast.errorInfo;
+          
+          // Make link text red here, as standard getLinks implementation
+          //   will only color if both sides of this link are leaves but
+          //   one is a subquery in this case
+          link.label.splice(0, 0, "<span style='color:#FF0000'>");
+          link.label.push("</span>");
+
+          // As this links to a subquery, also add errorInfo for the level.
+          levelsWithErrors.push({name: operator, level: level+1, errorInfo: ast.errorInfo});
+        }
+
+        links = links.concat(link);
+        console.log('Where link?', JSON.parse(JSON.stringify(links)));
+
+        return [rNodes, links];
       } else if (ast.right.type === 'expr_list') {
-        console.warn('HAVING with expr_list on the right, meaning a subquery.');
+        // Triggered via e.g. "[thing] IN [subquery]"
+
         var nodes = [];
         var links = [];
 
@@ -47961,6 +47995,22 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
         link.target = operator;
         link.label = [column + ' ' + operator];
         link.type = 'link';
+
+        if (ast.errorInfo) {
+          // ErrorInfo on the root of the HAVING, aka this "HAVING" was changed
+          //   (e.g. may have been a WHERE before but was adjusted).
+          link.error = true;
+          link.errorInfo = ast.errorInfo;
+          
+          // Make link text red here, as standard getLinks implementation
+          //   will only color if both sides of this link are leaves but
+          //   one is a subquery in this case
+          link.label.splice(0, 0, "<span style='color:#FF0000'>");
+          link.label.push("</span>");
+
+          // As this links to a subquery, also add errorInfo for the level.
+          levelsWithErrors.push({name: operator, level: level+1, errorInfo: ast.errorInfo});
+        }
 
         links = links.concat(link);
 
@@ -48048,6 +48098,7 @@ function getLinks(node, aliases, schema, tables, graphNodes, graphLinks, parent,
     var addNodeForRight = false;
     var idLeft = "?";
     var idRight = "?";
+
     // Check if the node is an error node and add that information to the link
     if (node.left.errorInfo || node.right.errorInfo) {
       errored = true;
