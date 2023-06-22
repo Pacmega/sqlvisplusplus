@@ -1,13 +1,12 @@
 SQLVis++ implementation specific issues
 
 High priority:
-- "keyword late" detection in general currently doesn't work. Unit tests exist for this but do not cover it successfully, suggesting issues in the detection or before that point.
-
+- Unit tests do not cover anywhere remotely near all code. Need to expand them greatly.
 
 Likely won't fix for now:
 - Scoping/referencing errors are not detected or visualized in HAVING.
 - Column/table names including any keyword, e.g. 'somewhere' or 'selectedUsers' trigger keyword detection because they contain a keyword in the name.
-
+  -> Potential fix: add a space at the start of the query, and make keyword detection instead detect [space]keyword[space], e.g. ' SELECT ' instead of 'SELECT'. Likely also requires associated adjustments of where keywords start and end.
 
 SQLVis issues:
 
@@ -32,3 +31,5 @@ SELECT co.sName, pur.date
 FROM confusion AS co, purchase AS pur, store as s2
 WHERE s2.sName = co.sName
 AND s2.sID = pur.sID
+
+- If there are multiple errors on a single table, only one is shown.

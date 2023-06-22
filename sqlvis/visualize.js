@@ -44725,6 +44725,19 @@ function retrieveKeywordIfPresent(keywordArray, keywordToFind) {
   return -1;
 }
 
+function adjustKeywordLocations(keywordsPerLevel, fromIndex, shiftBy) {
+  for (let levelName in keywordsPerLevel) {
+    let keywords = keywordsPerLevel[levelName].keywordArray;
+    for (let keywordIndex in keywords) {
+      if (keywords[keywordIndex][1] >= fromIndex) {
+        keywords[keywordIndex][1] += shiftBy;
+      }
+      if (keywords[keywordIndex][2] >= fromIndex) {
+        keywords[keywordIndex][2] += shiftBy;
+      }
+    }
+  }
+}
 
 function forcedReordering(query, keywordsPerLevel) {
   // Expected order: the standard list
@@ -44763,24 +44776,18 @@ function forcedReordering(query, keywordsPerLevel) {
         //   can lack a space, and we must add it to avoid connecting parts.
         let queryComponent = reorganizedQuery.slice(keywordInfo[1], keywordInfo[2] + 1);
         if (queryComponent.slice(-1) !== ' ') {
+          // The addition of a space can affect keyword start/end locations.
+          // As such, we must also update keyword related information.
           queryComponent += ' ';
+          adjustKeywordLocations(keywordsPerLevel, keywordInfo[2]+1, 1);
         }
-
         reorganizedQueryLevel.push(queryComponent);
       }
     }
-
     reorganizedQueryLevel = reorganizedQueryLevel.join('');
-
     reorganizedQuery = stringSplice(reorganizedQuery, startLocation,
                                     levelLength + 1, reorganizedQueryLevel);
-
-    // console.log('Changing level: ' + levelName + '\n'
-    //             + 'reorganizedQueryLevel: ' + reorganizedQueryLevel + '\n'
-    //             + 'Query post change: ' + reorganizedQuery);
-    
     }
-
   return reorganizedQuery;
 }
 
@@ -45516,17 +45523,16 @@ function visualize(query, schema, container, d3) {
     incorporateParsingErrors(ast, parseResults.foundIssues,
                              parseResults.levelTreeStructure);
   }
-  console.log('AST after incorporating errors found in textual analysis:', 
-              JSON.parse(JSON.stringify(ast)));
+  console.log('AST after incorporating errors found in textual analysis:', ast);
 
   // Analyze referencing/scoping
   withClauses = [];
   tempSchema = [];
   levelsWithErrors = [];
   extractAllowedRefs(svg, ast, {}, schema, 0, -1);
-  console.log("Augmented AST: ", JSON.parse(JSON.stringify(ast)));
+  console.log("Augmented AST: ", ast);
   analyzeReferences(svg, ast, {}, schema, 0, -1);
-  console.log("AST with scoping/referencing errors: ", JSON.parse(JSON.stringify(ast)));
+  console.log("AST with scoping/referencing errors: ", ast);
 
   for (let levelName in parseResults.levelTreeStructure) {
     // The root level is included in levelTreeStructure and is here
@@ -45537,7 +45543,7 @@ function visualize(query, schema, container, d3) {
     analyzeGroupingAgg(svg, subAST, {}, schema, 0, -1);
   }
   
-  console.log("AST with grouping/aggregation errors: ", JSON.parse(JSON.stringify(ast)));
+  console.log("AST with grouping/aggregation errors: ", ast);
   // Generate the contents of the visualization.
   var [nodes, links] = generateGraphTopLevel(svg, ast, {}, schema, 0, -1);
   console.log("Generated nodes: ", nodes);
@@ -46236,28 +46242,12 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         return classes.join(' ');
       })
       .html(d => {
-        if (cons[label] && cons[label][d]) {
-          let colContents = '<div>';
-          for (let objectIndex in cons[label][d]) {
-            if (typeof cons[label][d][objectIndex].value !== 'undefined') {
-              // WHERE or HAVING condition
-              colContents += cons[label][d][objectIndex].value + '<br>'
-            }
-            else {
-              // Some other condition
-              colContents += cons[label][d][objectIndex] + '<br>';
-            }
-          }
-          // Remove the superfluous final <br> and add the div end
-          colContents = colContents.slice(0, colContents.length-4) + '&nbsp</div>';
-          return colContents;
-        }
+        // Check if a div needs to be made at all
+        let colContents = '';
 
         if (selects[label] && selects[label][d]) {
-          let colContents = '<div>';
           for (let objectIndex in selects[label][d]) {
             let selectObject = selects[label][d][objectIndex];
-            // console.log('SELECT label ', selects[label][d][objectIndex]);
             if (typeof selectObject.value !== 'undefined') {
               // Only add <br> if there is content, to avoid wrong empty lines.
               let textToAdd = selectObject.value === '' ? selectObject.value
@@ -46276,11 +46266,45 @@ function expand(node, id, d3, showAlertsOnFail = true) {
           if (colContents.slice(colContents.length-4) === '<br>') {
             colContents = colContents.slice(0, colContents.length-4);
           }
-          colContents += '&nbsp</div>';
-
-          return colContents;
         }
 
+        if (cons[label] && cons[label][d]) {
+          let [consHaving, consWhere] = separateConditions(cons[label][d]);
+          
+          if (consWhere.length > 0) {
+            colContents += '<div class="whereDiv">';
+            for (let whereIndex in consWhere) {
+              if (typeof consWhere[whereIndex].value !== 'undefined') {
+                // WHERE condition
+                colContents += consWhere[whereIndex].value + '<br>';
+              } else {
+                // Some other condition (somehow)
+                colContents += consWhere[whereIndex] + '<br>';
+              }
+            }
+            // Remove the superfluous final <br> and add the div end
+            colContents = colContents.slice(0, colContents.length-4) + '</div>';
+          }
+
+          if (consHaving.length > 0) {
+            colContents += '<div class="havingDiv">';
+            for (let havingIndex in consHaving) {
+              if (typeof consHaving[havingIndex].value !== 'undefined') {
+                // HAVING condition
+                colContents += consHaving[havingIndex].value + '<br>';
+              } else {
+                // Some other condition
+                colContents += consHaving[havingIndex] + '<br>';
+              }
+            }
+            // Remove the superfluous final <br> and add the div end
+            colContents = colContents.slice(0, colContents.length-4) + '</div>';
+          }
+        }
+
+        if (colContents) {
+          return colContents;
+        }
         return '&nbsp';
       });
 

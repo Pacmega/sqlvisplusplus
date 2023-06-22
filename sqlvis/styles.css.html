@@ -53,6 +53,7 @@ svg .node text {
 	border: 1px solid rgb(147, 150, 209);
 	padding: 1px 4px;
 	font-size: 12px;
+	text-align: center;
 }
 
 .output_subarea .node td.condition, .node th.condition {
@@ -91,6 +92,7 @@ svg .node text {
 	border-left: 2px solid rgb(255, 160, 0);
 	border-right: 2px solid rgb(255, 160, 0);
 	background-color: rgba(255, 160, 0, 0.2);
+	text-align: center;
 }
 
 /* Pacmega: commented the first part of this, because this somehow
@@ -114,10 +116,14 @@ svg .node text {
 .output_subarea .node tr:first-child td.erroredSelection, 
 .output_subarea .node tr:first-child th.erroredSelection {
 	border-top: 2px solid rgb(255, 0, 0);
+	border-left: 2px solid rgb(255, 0, 0);
+	border-right: 2px solid rgb(255, 0, 0);
 }
 
 .output_subarea .node tr:last-child td.erroredSelection, 
 .output_subarea .node tr:last-child th.erroredSelection {
+	border-right: 2px solid rgb(255, 0, 0);
+	border-left: 2px solid rgb(255, 0, 0);
 	border-bottom: 2px solid rgb(255, 0, 0);
 }
 
@@ -125,6 +131,24 @@ svg .node text {
 	margin: 2px 0px 2px 0px;
 	border: 2px solid rgb(113,207,61);
 	background-color: rgba(113,207,61, 0.2);
+}
+
+.output_subarea .node td.condition.selection div.selectionDiv {
+	margin: 0x 0px 0px 0px;
+/*	border: 2px solid rgb(113,207,61);*/
+/*	background-color: rgba(113,207,61, 0.2);*/
+}
+
+.output_subarea .node td.condition.selection div.whereDiv {
+	margin: 2px 0px 2px 0px;
+	border: 2px solid rgb(113,207,61);
+	background-color: rgba(113,207,61, 0.2);
+}
+
+.output_subarea .node td.condition.selection div.havingDiv {
+	margin: 2px 0px 2px 0px;
+	border: 2px solid rgb(148, 119, 203);
+	background-color: rgba(148, 119, 203, 0.2);
 }
 
 /*.output_subarea text {
