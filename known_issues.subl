@@ -33,3 +33,15 @@ WHERE s2.sName = co.sName
 AND s2.sID = pur.sID
 
 - If there are multiple errors on a single table, only one is shown.
+
+
+- It is possible to cause "Uncaught TypeError: g.node(...) is undefined", this was already possible in SQLVis and remains unsolved in SQLVis+ and SQLVis++.
+Query to reproduce this with:
+SELECT s.sName, c.cName, SUM(p.quantity)
+FROM customer AS c, purchase AS p, store AS s
+WHERE s.sName IN (SELECT s2.sName
+                   FROM store AS s2
+                   WHERE s2.city = 'Eindhoven'
+                  )
+AND s.city = c.city
+AND c.cID = p.cID

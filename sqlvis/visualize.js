@@ -46271,6 +46271,8 @@ function expand(node, id, d3, showAlertsOnFail = true) {
         if (cons[label] && cons[label][d]) {
           let [consHaving, consWhere] = separateConditions(cons[label][d]);
           
+          // console.log('consWhere & consHaving:', consWhere, consHaving);
+
           if (consWhere.length > 0) {
             colContents += '<div class="whereDiv">';
             for (let whereIndex in consWhere) {
@@ -47719,194 +47721,66 @@ function modifyNode(nodes, instance) {
 
 function generateGraphExpression(element, ast, aliases, schema, level, parent, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType) {
   if (ast.type == 'binary_expr') {
-    /* I have messed with this function a bit, unsure how much it affects. */
-    
     if (ast.errorInfo) {
       // There was errorInfo put on the root of this. Propagating it into
       //   each side of the predicate gets it picked up in the processing.
       insertErrorInfo(ast.left, ast.errorInfo);
       insertErrorInfo(ast.right, ast.errorInfo);
     }
+    
+    if (ast.left.type == 'column_ref' && ast.right.type != 'select' && ast.right.type != 'expr_list') {
+      var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
+      return [linksAndNodes.nodes, linksAndNodes.links];
+    } else if (ast.left.type == 'aggr_func' && ast.right.type != 'select' && ast.right.type != 'expr_list') {
+      console.warn('Crash incoming? getLinks may be clueless about aggr_func.', ast);
+      var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
+      return [linksAndNodes.nodes, linksAndNodes.links];
+    } else if ((ast.left.type === 'column_ref' || ast.left.type === 'aggr_func')
+               && ast.right.type === 'expr_list') {
+      var nodes = []
+      var links = []
 
-    if (linkType === 'where') {
-      if (ast.right.type === 'select') {
-        //something left
-        // No link needs to be generated as it is not possible to connect an edge to a container.
-
-        //something right
+      for (var i in ast.right.value) {
         var [rNodes, rLinks] = generateGraphTopLevel(
-          element,
-          ast.right,
-          aliases, schema,
-          level + 1, level);
+        element,
+        ast.right.value[i],
+        aliases, schema,
+        level + 1, ast.operator);
 
-        return [rNodes, rLinks];
-      } else if (ast.right.type === 'expr_list') {   
-        var nodes = [];
-        var links = [];
-
-        for (var i in ast.right.value) {
-          var [rNodes, rLinks] = generateGraphTopLevel(
-            element,
-            ast.right.value[i],
-            aliases, schema,
-            level + 1, ast.operator
-          );
-
-          nodes = nodes.concat(rNodes);
-          links = links.concat(rLinks);
-        }
-        
-        //Add the link for where x not in y
-        var column = ast.left.column;
-        var table = ast.left.table || getTable(column, schema, tables)[0];
-
-        // Check if there is an alias for this table
-        for (var alias in aliases) {
-          if (aliases[alias] == table) {
-            var tableA = alias;
-          }
-        }
-
-        var operator = ast.operator;
-        var link = {};
-        link.sourceAlias = tableA || table;
-        link.source = tableA || table;
-        link.targetAlias = operator;
-        link.target = operator;
-        link.label = [column + ' ' + operator];
-        link.type = 'link';
-
-        links = links.concat(link);
-
-        return [nodes, links];
-      } else {
-        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
-        return [linksAndNodes.nodes, linksAndNodes.links];
-      }
-    }
-    else if (linkType === 'having') {
-      if (ast.right.type == 'select') {
-        // Triggered via e.g. "[thing] < [subquery]"
-
-        var links = [];
-
-        //something left
-        // No link needs to be generated as it is not possible to connect an edge to a container.
-
-        //something right
-        var [rNodes, rLinks] = generateGraphTopLevel(
-          element,
-          ast.right,
-          aliases, schema,
-          level + 1, ast.operator);
-
+        nodes = nodes.concat(rNodes);
         links = links.concat(rLinks);
-
-        //Add the link for where x not in y
-        var column = ast.left.column;
-        var table = ast.left.table || getTable(column, schema, tables)[0];
-
-        // Check if there is an alias for this table
-        for (var alias in aliases) {
-          if (aliases[alias] == table) {
-            var tableA = alias;
-          }
-        }
-
-        var operator = ast.operator;
-        var link = {};
-        link.sourceAlias = tableA || table;
-        link.source = tableA || table;
-        link.targetAlias = operator;
-        link.target = operator;
-        link.label = [column + ' ' + operator];
-        link.type = 'link';
-
-        if (ast.errorInfo) {
-          // ErrorInfo on the root of the HAVING, aka this "HAVING" was changed
-          //   (e.g. may have been a WHERE before but was adjusted).
-          link.error = true;
-          link.errorInfo = ast.errorInfo;
-          
-          // Make link text red here now. Function getLinks later on
-          //   will only color if both sides of this link are leaves, but
-          //   one is a subquery in this case.
-          link.label.splice(0, 0, "<span style='color:#FF0000'>");
-          link.label.push("</span>");
-
-          // As this links to a subquery, also add errorInfo for the level.
-          levelsWithErrors.push({name: operator, level: level+1, errorInfo: ast.errorInfo});
-        }
-
-        links = links.concat(link);
-        console.log('Where link?', JSON.parse(JSON.stringify(links)));
-
-        return [rNodes, links];
-      } else if (ast.right.type === 'expr_list') {
-        // Triggered via e.g. "[thing] IN [subquery]"
-
-        var nodes = [];
-        var links = [];
-
-        for (var i in ast.right.value) {
-          var [rNodes, rLinks] = generateGraphTopLevel(
-            element,
-            ast.right.value[i],
-            aliases, schema,
-            level + 1, ast.operator
-          );
-
-          nodes = nodes.concat(rNodes);
-          links = links.concat(rLinks);
-        }
-        
-        //Add the link for where x not in y
-        var column = ast.left.column;
-        var table = ast.left.table || getTable(column, schema, tables)[0];
-
-        // Check if there is an alias for this table
-        for (var alias in aliases) {
-          if (aliases[alias] == table) {
-            var tableA = alias;
-          }
-        }
-
-        var operator = ast.operator;
-        var link = {};
-        link.sourceAlias = tableA || table;
-        link.source = tableA || table;
-        link.targetAlias = operator;
-        link.target = operator;
-        link.label = [column + ' ' + operator];
-        link.type = 'link';
-
-        if (ast.errorInfo) {
-          // ErrorInfo on the root of the HAVING, aka this "HAVING" was changed
-          //   (e.g. may have been a WHERE before but was adjusted).
-          link.error = true;
-          link.errorInfo = ast.errorInfo;
-          
-          // Make link text red here now. Function getLinks later on
-          //   will only color if both sides of this link are leaves, but
-          //   one is a subquery in this case.
-          link.label.splice(0, 0, "<span style='color:#FF0000'>");
-          link.label.push("</span>");
-
-          // As this links to a subquery, also add errorInfo for the level.
-          levelsWithErrors.push({name: operator, level: level+1, errorInfo: ast.errorInfo});
-        }
-
-        links = links.concat(link);
-
-        return [nodes, links];
-      } else {
-        var linksAndNodes = getLinks(ast, aliases, schema, tables, graphNodes, graphLinks, originalParent, originalLevel, linkType);
-        return [linksAndNodes.nodes, linksAndNodes.links];
       }
-    }
-    else {
-      console.warn('Unknown link type: ' + linkType);
+      
+      let column;
+      let table;
+
+      //Add the link for where x not in y
+      if (ast.left.type === 'aggr_func') {
+        column = ast.left.args.expr.column;
+        table = ast.left.args.expr.table || getTable(column, schema, tables)[0];
+      } else { // Normal column ref
+        column = ast.left.column;
+        table = ast.left.table || getTable(column, schema, tables)[0];
+      }
+
+      // Check if there is an alias for this table
+      for (var alias in aliases) {
+        if (aliases[alias] == table) {
+          var tableAlias = alias;
+        }
+      }
+      var operator = ast.operator
+      var link = {};
+      link.sourceAlias = tableAlias || table
+      link.source = tableAlias || table
+      link.targetAlias = operator
+      link.target = operator
+      link.label = [column + ' ' + operator]
+      link.type = 'link'
+
+      links = links.concat(link)
+
+      return [nodes, links];
     }
 
     var [lNodes, lLinks] = generateGraphExpression(
@@ -47920,22 +47794,13 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
     return [lNodes.concat(rNodes), lLinks.concat(rLinks)];
 
   } else if (ast.type == 'unary_expr') {
-    // If there is errorInfo on the root of this where, push it down to the
-    //   expression so that it can be evaluated in the function.
-    if (ast.errorInfo) {
-      insertErrorInfo(ast.expr, ast.errorInfo);
-    }
     return generateGraphUnaryExpression(element, ast, aliases, schema, level+1, level);
-  } else if (ast.type === 'aggr_func') {
-    console.log('Now visiting the inside of a HAVING statement (should be the left side). '
-                + 'AST here is: ', ast);
-    console.warn('There is nothing happening in the body of this if...?', ast);
   } else {
-    alert("Something might be wrong with your WHERE and/or HAVING clauses, "
-          + "please check your query.");
-    throw Error('Unknown where type: ' + ast.type, ast);
+    alert("Something might be wrong with your where clause, please check your query.");
+    throw Error('Unknown where type: ' + ast.type);
   }
 }
+
 
 // If there is a subquery, recursively find the nodes and links there too.
 function generateGraphUnaryExpression(element, ast, aliases, schema, level, parent) {
