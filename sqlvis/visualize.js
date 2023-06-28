@@ -47778,6 +47778,22 @@ function generateGraphExpression(element, ast, aliases, schema, level, parent, t
       link.label = [column + ' ' + operator]
       link.type = 'link'
 
+      if (ast.errorInfo) {
+        // ErrorInfo on the root of the HAVING, aka this "HAVING" was changed
+        //   (e.g. may have been a WHERE before but was adjusted).
+        link.error = true;
+        link.errorInfo = ast.errorInfo;
+        
+        // Make link text red here now. Function getLinks later on
+        //   will only color if both sides of this link are leaves, but
+        //   one is a subquery in this case.
+        link.label.splice(0, 0, "<span style='color:#FF0000'>");
+        link.label.push("</span>");
+
+        // As this links to a subquery, also add errorInfo for the level.
+        levelsWithErrors.push({name: operator, level: level+1, errorInfo: ast.errorInfo});
+      }
+
       links = links.concat(link)
 
       return [nodes, links];
