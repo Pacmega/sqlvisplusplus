@@ -11,6 +11,9 @@ big ones. These are the ones that should also persist through
 onlyKeepBiggestMistakes, so that function can be tested here immediately too.
 */
 
+// NOTE: SELECT GROUP BY - As this kind of GROUP BY should not appear as a
+//  keyword anymore at this point, there should be no issues regarding it.
+  
 const visCode = require('../../../sqlvis/visualize');
 
 // Effectively setup for all tests
@@ -412,9 +415,6 @@ FROM customer, purchase
   let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
 
-  console.log('NOTE @ findKeywordIssues: SELECT GROUP BY - As GROUP BY should not appear as a '
-              + 'keyword anymore at this point, there should be no issues regarding it.');
-  
   // As this query does not contain errors in the keywords that should be
   //   detected at this location, confirm that none of the levels appear.
   expect(foundIssues.level_0_0).toBeUndefined();

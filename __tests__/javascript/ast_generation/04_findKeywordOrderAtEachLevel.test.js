@@ -7,6 +7,9 @@ of the query to lower case, this is done here too for consistency's sake.
 This is not actually needed for this function.
 */
 
+// NOTE: SELECT GROUP BY - As this kind of GROUP BY should not appear as a
+//  keyword anymore at this point, there should be no issues regarding it.
+
 const visCode = require('../../../sqlvis/visualize');
 
 // Effectively setup for all tests
@@ -460,9 +463,6 @@ SELECT c.cName, p.price
 FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND COUNT(GROUP BY p.pID) < 5;`
-
-  console.log('NOTE @ addKeywordEndings: COUNT(GROUP BY) is just assumed to be gone '
-              + 'now and is no longer tested for.');
 
   const clean_query = visCode.queryTextAdjustments(query);
   const lowercaseQuery = query.toLowerCase();

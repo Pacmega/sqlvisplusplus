@@ -549,8 +549,8 @@ ORDER BY c.cName ASC;
                       + 'use the keyword WHERE once per query.';
 
   // Check if all errors were incorporated as expected.
-  expect(ast.where.right.left.errorInfo.message).toContainEqual(havingMessage);
-  expect(ast.where.right.right.errorInfo.message).toContainEqual(havingMessage);
+  expect(ast.where.right.left.errorInfo.message).toContainEqual(whereMessage);
+  expect(ast.where.right.right.errorInfo.message).toContainEqual(whereMessage);
 });
 
 

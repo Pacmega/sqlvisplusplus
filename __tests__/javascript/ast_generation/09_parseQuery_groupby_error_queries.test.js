@@ -28,9 +28,9 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.type).toBe('select');
   expect(ast.columns).not.toBeNull();
   expect(ast.from).not.toBeNull();
-  expect(ast.where).toBeNull();
+  expect(ast.where).not.toBeNull();
   expect(ast.groupby).not.toBeNull();
-  expect(ast.having).not.toBeNull();
+  expect(ast.having).toBeNull();
 
   // Then check contents.
   expect(ast.columns[0].expr.column).toBe('cName');
@@ -48,13 +48,13 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.groupby[0].column).toBe('cName');
   expect(ast.groupby[0].table).toBe('c');
 
-  expect(ast.having.left.column).toBe('cID');
-  expect(ast.having.left.table).toBe('c');
-  expect(ast.having.operator).toBe('=');
-  expect(ast.having.right.type).toBe('aggr_func');
-  expect(ast.having.right.name).toBe('SUM');
-  expect(ast.having.right.args.expr.column).toBe('cID');
-  expect(ast.having.right.args.expr.table).toBe('p');
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.type).toBe('aggr_func');
+  expect(ast.where.right.name).toBe('SUM');
+  expect(ast.where.right.args.expr.column).toBe('cID');
+  expect(ast.where.right.args.expr.table).toBe('p');
 });
 
 
@@ -75,9 +75,9 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.type).toBe('select');
   expect(ast.columns).not.toBeNull();
   expect(ast.from).not.toBeNull();
-  expect(ast.where).toBeNull();
+  expect(ast.where).not.toBeNull();
   expect(ast.groupby).not.toBeNull();
-  expect(ast.having).not.toBeNull();
+  expect(ast.having).toBeNull();
 
   // Then check contents.
   expect(ast.columns[0].expr.column).toBe('cName');
@@ -95,13 +95,13 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.groupby[0].column).toBe('cName');
   expect(ast.groupby[0].table).toBe('c');
 
-  expect(ast.having.left.column).toBe('cID');
-  expect(ast.having.left.table).toBe('c');
-  expect(ast.having.operator).toBe('=');
-  expect(ast.having.right.type).toBe('aggr_func');
-  expect(ast.having.right.name).toBe('SUM');
-  expect(ast.having.right.args.expr.column).toBe('cID');
-  expect(ast.having.right.args.expr.table).toBe('p');
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.type).toBe('aggr_func');
+  expect(ast.where.right.name).toBe('SUM');
+  expect(ast.where.right.args.expr.column).toBe('cID');
+  expect(ast.where.right.args.expr.table).toBe('p');
 });
 
 
@@ -122,9 +122,9 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.type).toBe('select');
   expect(ast.columns).not.toBeNull();
   expect(ast.from).not.toBeNull();
-  expect(ast.where).toBeNull();
+  expect(ast.where).not.toBeNull();
   expect(ast.groupby).not.toBeNull();
-  expect(ast.having).not.toBeNull();
+  expect(ast.having).toBeNull();
 
   // Then check contents.
   expect(ast.columns[0].expr.column).toBe('cName');
@@ -142,13 +142,13 @@ WHERE c.cID = SUM(p.cID)
   expect(ast.groupby[0].column).toBe('cName');
   expect(ast.groupby[0].table).toBe('c');
 
-  expect(ast.having.left.column).toBe('cID');
-  expect(ast.having.left.table).toBe('c');
-  expect(ast.having.operator).toBe('=');
-  expect(ast.having.right.type).toBe('aggr_func');
-  expect(ast.having.right.name).toBe('SUM');
-  expect(ast.having.right.args.expr.column).toBe('cID');
-  expect(ast.having.right.args.expr.table).toBe('p');
+  expect(ast.where.left.column).toBe('cID');
+  expect(ast.where.left.table).toBe('c');
+  expect(ast.where.operator).toBe('=');
+  expect(ast.where.right.type).toBe('aggr_func');
+  expect(ast.where.right.name).toBe('SUM');
+  expect(ast.where.right.args.expr.column).toBe('cID');
+  expect(ast.where.right.args.expr.table).toBe('p');
 });
 
 
@@ -880,7 +880,7 @@ ORDER BY c.cName ASC;
   expect(ast.from).not.toBeNull();
   expect(ast.where).not.toBeNull();
   expect(ast.groupby).toBeNull();
-  expect(ast.having).not.toBeNull();
+  expect(ast.having).toBeNull();
   expect(ast.orderby).not.toBeNull();
 
   // Then check contents.
@@ -896,18 +896,18 @@ ORDER BY c.cName ASC;
   expect(ast.from[1].as).toBe('p');
   expect(ast.from[1].table).toBe('purchase');
 
-  expect(ast.where.left.column).toBe('cID');
-  expect(ast.where.left.table).toBe('c');
-  expect(ast.where.operator).toBe('=');
-  expect(ast.where.right.column).toBe('cID');
-  expect(ast.where.right.table).toBe('p');
-
-  expect(ast.having.left.type).toBe('aggr_func');
-  expect(ast.having.left.name).toBe('MIN');
-  expect(ast.having.left.args.expr.column).toBe('price');
-  expect(ast.having.left.args.expr.table).toBe('p');
-  expect(ast.having.operator).toBe('>');
-  expect(ast.having.right.value).toBe(7.5);
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('cID');
+  expect(ast.where.left.right.table).toBe('p');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.type).toBe('aggr_func');
+  expect(ast.where.right.left.name).toBe('MIN');
+  expect(ast.where.right.left.args.expr.column).toBe('price');
+  expect(ast.where.right.left.args.expr.table).toBe('p');
+  expect(ast.where.right.operator).toBe('>');
+  expect(ast.where.right.right.value).toBe(7.5);
 
   expect(ast.orderby[0].type).toBe('ASC');
   expect(ast.orderby[0].expr.column).toBe('cName');
@@ -1014,28 +1014,28 @@ ORDER BY c.cName ASC;
   expect(ast.from[1].as).toBe('p');
   expect(ast.from[1].table).toBe('purchase');
 
-  expect(ast.where.left.column).toBe('cID');
-  expect(ast.where.left.table).toBe('c');
-  expect(ast.where.operator).toBe('=');
-  expect(ast.where.right.column).toBe('cID');
-  expect(ast.where.right.table).toBe('p');
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('cID');
+  expect(ast.where.left.right.table).toBe('p');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.type).toBe('aggr_func');
+  expect(ast.where.right.left.name).toBe('MIN');
+  expect(ast.where.right.left.args.expr.column).toBe('price');
+  expect(ast.where.right.left.args.expr.table).toBe('p');
+  expect(ast.where.right.operator).toBe('>');
+  expect(ast.where.right.right.value).toBe(7.5);
 
   expect(ast.groupby[0].column).toBe('cName');
   expect(ast.groupby[0].table).toBe('c');
 
-  expect(ast.having.left.left.type).toBe('aggr_func');
-  expect(ast.having.left.left.name).toBe('COUNT');
-  expect(ast.having.left.left.args.expr.column).toBe('cID');
-  expect(ast.having.left.left.args.expr.table).toBe('c');
-  expect(ast.having.left.operator).toBe('>');
-  expect(ast.having.left.right.value).toBe(5);
-  expect(ast.having.operator).toBe('AND');
-  expect(ast.having.right.left.type).toBe('aggr_func');
-  expect(ast.having.right.left.name).toBe('MIN');
-  expect(ast.having.right.left.args.expr.column).toBe('price');
-  expect(ast.having.right.left.args.expr.table).toBe('p');
-  expect(ast.having.right.operator).toBe('>');
-  expect(ast.having.right.right.value).toBe(7.5);
+  expect(ast.having.left.type).toBe('aggr_func');
+  expect(ast.having.left.name).toBe('COUNT');
+  expect(ast.having.left.args.expr.column).toBe('cID');
+  expect(ast.having.left.args.expr.table).toBe('c');
+  expect(ast.having.operator).toBe('>');
+  expect(ast.having.right.value).toBe(5);
 
   expect(ast.orderby[0].type).toBe('ASC');
   expect(ast.orderby[0].expr.column).toBe('cName');
@@ -1352,6 +1352,90 @@ SELECT co.sName, pur.date
   expect(ast.having).toBeNull();
   expect(ast.orderby).toBeNull();
 
-  expect(ast).toBe('ast');
-});
+  // Then check contents.
+  // Main query.
+  expect(ast.columns[0].expr.column).toBe('sName');
+  expect(ast.columns[0].expr.table).toBe('co');
+  expect(ast.columns[1].expr.column).toBe('date');
+  expect(ast.columns[1].expr.table).toBe('pur');
 
+  expect(ast.from[0].as).toBe('co');
+  expect(ast.from[0].table).toBe('confusion');
+  expect(ast.from[1].as).toBe('pur');
+  expect(ast.from[1].table).toBe('purchase');
+  expect(ast.from[2].as).toBe('s2');
+  expect(ast.from[2].table).toBe('store');
+
+  expect(ast.where.left.left.column).toBe('sName');
+  expect(ast.where.left.left.table).toBe('s2');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('sName');
+  expect(ast.where.left.right.table).toBe('co');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.column).toBe('sID');
+  expect(ast.where.right.left.table).toBe('s2');
+  expect(ast.where.right.operator).toBe('=');
+  expect(ast.where.right.right.column).toBe('sID');
+  expect(ast.where.right.right.table).toBe('pur');
+
+  // The WITH statement
+  expect(ast.with[0].name).toBe('confusion');
+  expect(ast.with[0].stmt.type).toBe('select');
+  expect(ast.with[0].stmt.columns).not.toBeNull();
+  expect(ast.with[0].stmt.from).not.toBeNull();
+  expect(ast.with[0].stmt.where).not.toBeNull();
+  expect(ast.with[0].stmt.groupby).not.toBeNull();
+  expect(ast.with[0].stmt.having).not.toBeNull();
+  expect(ast.with[0].stmt.orderby).toBeNull();
+
+  expect(ast.with[0].stmt.columns[0].expr.column).toBe('sName');
+  expect(ast.with[0].stmt.columns[0].expr.table).toBe('s1');
+  
+  expect(ast.with[0].stmt.from[0].table).toBe('store');
+  expect(ast.with[0].stmt.from[0].as).toBe('s1');
+
+  expect(ast.with[0].stmt.where.left.left.column).toBe('sName');
+  expect(ast.with[0].stmt.where.left.left.table).toBe('s1');
+  expect(ast.with[0].stmt.where.left.operator).toBe('LIKE');
+  expect(ast.with[0].stmt.where.left.right.value).toBe('%e%');
+  expect(ast.with[0].stmt.where.operator).toBe('AND');
+  expect(ast.with[0].stmt.where.right.left.type).toBe('aggr_func');
+  expect(ast.with[0].stmt.where.right.left.name).toBe('COUNT');
+  expect(ast.with[0].stmt.where.right.left.args.expr.column).toBe('sID');
+  expect(ast.with[0].stmt.where.right.left.args.expr.table).toBe('s1');
+  expect(ast.with[0].stmt.where.right.operator).toBe('>');
+  expect(ast.with[0].stmt.where.right.right.value).toBe(2);
+
+  expect(ast.with[0].stmt.groupby[0].column).toBe('city');
+  expect(ast.with[0].stmt.groupby[0].table).toBe('s1');
+
+  expect(ast.with[0].stmt.having.left.column).toBe('city');
+  expect(ast.with[0].stmt.having.left.table).toBe('s1');
+  expect(ast.with[0].stmt.having.operator).toBe('IN');
+
+  // The WITH subquery
+  expect(ast.with[0].stmt.having.right.type).toBe('expr_list');
+  expect(ast.with[0].stmt.having.right.value[0].type).toBe('select');
+  expect(ast.with[0].stmt.having.right.value[0].columns).not.toBeNull();
+  expect(ast.with[0].stmt.having.right.value[0].from).not.toBeNull();
+  expect(ast.with[0].stmt.having.right.value[0].where).toBeNull();
+  expect(ast.with[0].stmt.having.right.value[0].groupby).not.toBeNull();
+  expect(ast.with[0].stmt.having.right.value[0].having).not.toBeNull();
+  expect(ast.with[0].stmt.having.right.value[0].orderby).toBeNull();  
+
+  expect(ast.with[0].stmt.having.right.value[0].columns[0].expr.column).toBe('city');
+  expect(ast.with[0].stmt.having.right.value[0].columns[0].expr.table).toBe('c1');
+
+  expect(ast.with[0].stmt.having.right.value[0].from[0].as).toBe('c1');
+  expect(ast.with[0].stmt.having.right.value[0].from[0].table).toBe('customer');
+
+  expect(ast.with[0].stmt.having.right.value[0].groupby[0].column).toBe('city');
+  expect(ast.with[0].stmt.having.right.value[0].groupby[0].table).toBe('c1');
+
+  expect(ast.with[0].stmt.having.right.value[0].having.left.type).toBe('aggr_func');  
+  expect(ast.with[0].stmt.having.right.value[0].having.left.name).toBe('COUNT');
+  expect(ast.with[0].stmt.having.right.value[0].having.left.args.expr.column).toBe('cID');
+  expect(ast.with[0].stmt.having.right.value[0].having.left.args.expr.table).toBe('c1');
+  expect(ast.with[0].stmt.having.right.value[0].having.operator).toBe('>');
+  expect(ast.with[0].stmt.having.right.value[0].having.right.value).toBe(20);
+});

@@ -4,10 +4,6 @@ console.log('WARN: This test setup assumes that the part of visualize.js that ' 
             'likely all similar. Ctrl-f for "UNCOMMENT FROM HERE" in ' +
             'visualize.js to find the part that must be uncommented.');
 
-console.log('INFO: Once my own analysis functions are implemented, that can/should ' +
-            'be an extension of the current tests. Use parseQuery tests to extensively ' +
-            'test the base structure, then add analysis tests that only test expected changes.');
-
 /* Note to self: order of AST entries:
 - as
 - column

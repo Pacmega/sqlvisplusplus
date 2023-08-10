@@ -413,9 +413,6 @@ FROM customer AS c, purchase AS p
 WHERE c.cID = p.cID
 AND COUNT(GROUP BY p.pID) < 5;`
 
-  console.log('NOTE @ addKeywordEndings: COUNT(GROUP BY) is just assumed to be gone '
-              + 'now and is no longer tested for.');
-
   const clean_query = visCode.queryTextAdjustments(query);
   const lowercaseQuery = query.toLowerCase();
   let keywordArray = visCode.findKeywordAppearances(lowercaseQuery, itemsToFind,
