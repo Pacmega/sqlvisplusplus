@@ -44614,6 +44614,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
 
           // Update the found mistake to reflect the change.
           mistake.handledBy = whereHavingFix;
+          delete mistake.issue;
 
           // Since we fixed this WHERE based on it being behind a GROUP BY,
           //   there must be a GROUP BY mistake as well based on this WHERE
@@ -44646,6 +44647,7 @@ function doubleWhereDetection(foundIssues, keywordsPerLevel, query) {
           
           // Also update the found mistake to reflect the change.
           mistake.handledBy = 'WHERE->AND';
+          delete mistake.issue;
         }
         else {
           // This should be impossible.
@@ -44704,6 +44706,7 @@ function doubleHavingDetection(foundIssues, keywordsPerLevel, query) {
                                           havingLength, replacementString);
 
         mistake.handledBy = havingFix;
+        delete mistake.issue;
 
         // Handle the WHERE merge and reset keywordsInLevel.
         levelKeywords[secondHavingIndex-1][2] = secondHavingEnd;
@@ -45142,10 +45145,6 @@ function findNamedSubquery(ast, subqueryLocationTrace) {
 
 
 function findAndFixGroup_by_(ast, maxErrors=5) {
-  // TODO: NEED TO TEST THIS! CURRENTLY UNTESTED, MAY NOT EVEN RUN!
-  // TODO: I MAY HAVE PLACED WITH IN THE WRONG ARRAY (MIGHT BREAK!)
-  console.log('findAndFixGroup_by_ called with AST = ', ast);
-
   const checkItems = ['column', 'table', 'name', 'operator'];
 
   const visitableObjects = ['left', 'right', 'args', 'expr', 'stmt',
@@ -45155,7 +45154,7 @@ function findAndFixGroup_by_(ast, maxErrors=5) {
   if (Array.isArray(ast)) {
     // If e.g. FROM was selected, this "AST" is an array. Iterate over it.
     for (let visitableItemIndex in ast) {
-      console.log('Iterating over an array here, now going into index ' + visitableItemIndex);
+      // console.log('Iterating over an array here, now going into index ' + visitableItemIndex);
       let returnObj = findAndFixGroup_by_(ast[visitableItemIndex]);
       if (returnObj) {
         // If something was returned, an unmarked error was found.
@@ -45170,17 +45169,17 @@ function findAndFixGroup_by_(ast, maxErrors=5) {
       }
       
       if (checkItems.includes(element)) {
-        console.log('Checkable item ' + element + ' located in AST.');
+        // console.log('Checkable item ' + element + ' located in AST.');
         if (typeof ast[element] === 'string'
             && ast[element].toLowerCase().includes('group_by_')) {
           // Error structure found. If the structure is found, it was not fixed
           //   yet. Fix the error, and return AST object for error tagging.
-          console.log('Error detected. Handling and returning.');
+          // console.log('Error detected. Handling and returning.');
           ast[element] = ast[element].slice('group_by_'.length);
           return ast;
         }
       } else if (visitableObjects.includes(element)) {
-        console.log('Visitable object located, visiting: ' + element);
+        // console.log('Visitable object located, visiting: ' + element);
         let returnObj = findAndFixGroup_by_(ast[element]);
         if (returnObj) {
           // If something was returned, an unmarked error was found.
@@ -45191,7 +45190,7 @@ function findAndFixGroup_by_(ast, maxErrors=5) {
         //   visitable list and sometimes it is a number or a string
         if (typeof ast[element] === 'string'
             && ast[element].toLowerCase().includes('group_by_')) {
-          console.log('Error detected. Handling and returning.');
+          // console.log('Error detected. Handling and returning.');
           // Error structure found. If the structure is found, it was not fixed
           //   yet. Fix the error, and return AST object for error tagging.
           ast[element] = ast[element].slice('group_by_'.length);
@@ -45201,7 +45200,7 @@ function findAndFixGroup_by_(ast, maxErrors=5) {
           //   this thing definitely does not have aggregation and so is fine.
           continue;
         }
-        console.log('List containing visitable items located with name: ' + element);
+        // console.log('List containing visitable items located with name: ' + element);
 
         for (let visitableItemIndex in ast[element]) {
           let visitableItem = ast[element][visitableItemIndex];
@@ -45420,10 +45419,8 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
           // Walk through every single attribute, find & tag the first thing
           //   containing the prefix 'GROUP_BY_' without a mistake tag. If
           //   multiple such errors exist, this will just be called again.
-          console.log('TODO! - GROUP BY ->GROUP_BY_');
           let astPart = subqueryRoot;
           let wrongGroupByAST = findAndFixGroup_by_(subqueryRoot);
-          console.log('Result of findAndFixGroup_by_: ', wrongGroupByAST);
           if (wrongGroupByAST) {
             errorMessage = 'GROUP BY can only be used as a keyword like e.g. SELECT '
                            + 'and FROM, and should not be within any keyword/function.';
@@ -45434,7 +45431,7 @@ function incorporateParsingErrors(ast, foundIssues, levelTreeStructure) {
             console.warn('No GROUP_BY_ issue found searching AST part.', astPart);
           }
         } else {
-          throw Error('Unhandled handledBy issue type: ' + issue.handledBy);
+          console.warn('Unhandled handledBy issue type: ' + issue.handledBy);
         }
       } else {
         if (issue.issue === 'early') {
@@ -48200,7 +48197,7 @@ function getTable(column, schema, tables=null) {
   }
 }
 
-/*
+
 // UNCOMMENT FROM HERE UNTIL FURTHER DOWN FOR TESTING AND LOCAL
 //    FUNCTIONALITY, COMMENT IT FOR JUPYTER NOTEBOOK USAGE
 // (+- 60 lines, there is an end comment further down)
@@ -48285,7 +48282,7 @@ define(function() {
 
 // COMMENT UNTIL HERE FOR JUPYTER NOTEBOOK USAGE,
 //   UNCOMMENT IT FOR TESTING AND LOCAL FUNCTIONALITY
-*/
+
 
 define('viz', ['d3'], function (d3) {
   var d3 = d3;

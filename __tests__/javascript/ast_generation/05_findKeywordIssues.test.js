@@ -48,6 +48,7 @@ WHERE c.cID = SUM(p.cID)
   
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                    ['group by', 1, 17]],
+                      issue: 'early',
                       detectedAtKeyword: [itemsToFind.indexOf('where'),
                                          ['where', 81, 104]]};
 
@@ -93,6 +94,7 @@ WHERE c.cID = SUM(p.cID)
   
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                    ['group by', 30, 46]],
+                      issue: 'early',
                       detectedAtKeyword: [itemsToFind.indexOf('where'),
                                          ['where', 81, 104]]};
 
@@ -138,6 +140,7 @@ WHERE c.cID = SUM(p.cID)
   
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                    ['group by', 64, 80]],
+                      issue: 'early',
                       detectedAtKeyword: [itemsToFind.indexOf('where'),
                                          ['where', 81, 104]]};
 
@@ -210,12 +213,14 @@ WHERE c.cName LIKE '%a%';
   
   let doubleWhereError = {mistakeWord: [itemsToFind.indexOf('where'),
                                       ['where', 64, 83]],
-                         detectedAtKeyword: [itemsToFind.indexOf('where'),
-                                            ['where', 101, 124]]};
+                          issue: 'early',
+                          detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                             ['where', 101, 124]]};
 
   // Check the console log above.
   let whereAfterGroupBy = {mistakeWord: [itemsToFind.indexOf('group by'),
                                         ['group by', 84, 100]],
+                           issue: 'early',
                            detectedAtKeyword: [itemsToFind.indexOf('where'),
                                               ['where', 101, 124]]};
 
@@ -266,6 +271,7 @@ GROUP BY c.cName;`
 
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                    ['group by', 80, 111]],
+                      issue: 'early',
                       detectedAtKeyword: [itemsToFind.indexOf('from'),
                                          ['from', 142, 177]]};
 
@@ -315,8 +321,9 @@ GROUP BY c.cName;`
 
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                    ['group by', 110, 141]],
-                    detectedAtKeyword: [itemsToFind.indexOf('from'),
-                                       ['from', 142, 177]]};
+                      issue: 'early',
+                      detectedAtKeyword: [itemsToFind.indexOf('from'),
+                                         ['from', 142, 177]]};
 
   expect(foundIssues.level_1_0).toContainEqual(groupByError);
 
@@ -710,12 +717,17 @@ query = `
   let keywordsPerLevel = returnObject.keywordsPerLevel;
   let levelTreeStructure = returnObject.levelTreeStructure;
   let foundIssues = visCode.findKeywordIssuesPerLevel(keywordsPerLevel);
+  for (let levelName in foundIssues) {
+    let levelMistakes = foundIssues[levelName];
+    visCode.onlyKeepBiggestMistakes(levelMistakes);
+  }
 
   // Step 1: check if the biggest error(s) was (were) found correctly.
   expect(foundIssues.level_0_0).toBeDefined();
 
   let lateSelectError = {mistakeWord: [itemsToFind.indexOf('from'),
                                       ["from", 3, 34]],
+                         issue: 'late',
                          detectedAtKeyword: [itemsToFind.indexOf('select'),
                                             ["select", 71, 93]]};
 
@@ -761,14 +773,19 @@ HAVING SUM(b.price) > 10;
   // Step 1: check if the biggest error(s) was (were) found correctly.
   expect(foundIssues.level_0_0).toBeDefined();
 
+  // Special-ish case: FROM is seen as late once and early once,
+  //   and as such is registered as being early.
   let lateSelectError = {mistakeWord: [itemsToFind.indexOf('from'),
                                       ["from", 15, 44]],
+                         issue: 'early',
                          detectedAtKeyword: [itemsToFind.indexOf('select'),
                                             ["select", 63, 83]]};
+  
   let groupByError = {mistakeWord: [itemsToFind.indexOf('group by'),
                                       ["group by", 1, 14]],
-                         detectedAtKeyword: [itemsToFind.indexOf('where'),
-                                            ["where", 45, 62]]};
+                      issue: 'early',
+                      detectedAtKeyword: [itemsToFind.indexOf('where'),
+                                         ["where", 45, 62]]};
 
 
   expect(foundIssues.level_0_0).toContainEqual(lateSelectError);
@@ -777,10 +794,13 @@ HAVING SUM(b.price) > 10;
   // Step 2: onlyKeepBiggestMistakes, and check that exactly only the
   //   biggest mistakes are kept. This step is why it is currently
   //   unnecessary to check for every detected item in the previous step.
+  // Also, onlyKeepBiggestMistakes flips the lateSelectError to being late
+  //   as it figures out what the real problems are.
   for (levelName in foundIssues) {
     let mistakes = foundIssues[levelName];
     visCode.onlyKeepBiggestMistakes(mistakes);
   };
+  lateSelectError.issue = 'late';
 
   let expectedFullLevelZeroErrorList = [groupByError, lateSelectError];
   

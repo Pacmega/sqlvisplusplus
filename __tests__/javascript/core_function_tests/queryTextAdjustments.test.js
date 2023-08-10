@@ -10,9 +10,6 @@ WHERE things;`
   expect(visCode.queryTextAdjustments(query)).toBe(expectedResult);
 })
 
-console.log('WARN: Tests here assume one backslash to be the right way to escape, '
-            + 'but this is not yet fully tested in actual visualizations!');
-
 test('Leave single quotes untouched', () => {
   var query = `
 SELECT this

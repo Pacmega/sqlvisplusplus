@@ -585,8 +585,6 @@ FROM purchase
 
 
 test('Query with WHERE COUNT(GROUP BY [col]) statement', () => {
-  // Expected: WHERE statement moved to HAVING, GROUP BY affixed to [col]
-  // NOTE: I may end up revising this idea and test at some point.
   query = `
 SELECT c.cName, p.price
 FROM customer AS c, purchase AS p
@@ -601,9 +599,9 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(ast.type).toBe('select');
   expect(ast.columns).not.toBeNull();
   expect(ast.from).not.toBeNull();
-  expect(ast.where).toBeNull();
+  expect(ast.where).not.toBeNull();
   expect(ast.groupby).toBeNull();
-  expect(ast.having).not.toBeNull();
+  expect(ast.having).toBeNull();
 
   // Then check contents.
   expect(ast.columns[0].expr.column).toBe('cName');
@@ -616,18 +614,18 @@ AND COUNT(GROUP BY p.pID) < 5;`
   expect(ast.from[1].as).toBe('p');
   expect(ast.from[1].table).toBe('purchase');
 
-  expect(ast.having.left.left.column).toBe('cID');
-  expect(ast.having.left.left.table).toBe('c');
-  expect(ast.having.left.operator).toBe('=');
-  expect(ast.having.left.right.column).toBe('cID');
-  expect(ast.having.left.right.table).toBe('p');
-  expect(ast.having.operator).toBe('AND');
-  expect(ast.having.right.left.name).toBe('COUNT');
-  expect(ast.having.right.left.type).toBe('aggr_func');
-  expect(ast.having.right.left.args.expr.column).toBe('pID');
-  expect(ast.having.right.left.args.expr.table).toBe('GROUP_BY_p');
-  expect(ast.having.right.operator).toBe('<');
-  expect(ast.having.right.right.value).toBe(5);
+  expect(ast.where.left.left.column).toBe('cID');
+  expect(ast.where.left.left.table).toBe('c');
+  expect(ast.where.left.operator).toBe('=');
+  expect(ast.where.left.right.column).toBe('cID');
+  expect(ast.where.left.right.table).toBe('p');
+  expect(ast.where.operator).toBe('AND');
+  expect(ast.where.right.left.name).toBe('COUNT');
+  expect(ast.where.right.left.type).toBe('aggr_func');
+  expect(ast.where.right.left.args.expr.column).toBe('pID');
+  expect(ast.where.right.left.args.expr.table).toBe('GROUP_BY_p');
+  expect(ast.where.right.operator).toBe('<');
+  expect(ast.where.right.right.value).toBe(5);
 });
 
 
@@ -1320,3 +1318,40 @@ WHERE b.alsothat in (SELECT alsothat
   expect(ast.where.right.right.value[0].where.expr.where.operator).toBe('LIKE');
   expect(ast.where.right.right.value[0].where.expr.where.right.value).toBe('%a%');
 });
+
+test('Main query, WITH statement & WITH subquery all with misordered keywords', () => {
+  query = `
+WITH confusion AS (
+    FROM store AS s1
+    WHERE s1.sName LIKE '%e%'
+    AND COUNT(s1.sID) > 2
+    GROUP BY s1.city
+    HAVING s1.city IN (FROM customer AS c1
+                       GROUP BY c1.city
+                       HAVING COUNT(c1.cID) > 20
+                       SELECT c1.city
+                      )
+    SELECT s1.sName)
+
+FROM confusion AS co, purchase AS pur, store as s2
+WHERE s2.sName = co.sName
+AND s2.sID = pur.sID
+SELECT co.sName, pur.date
+`
+
+  let clean_query = visCode.queryTextAdjustments(query);
+  let parseResults = visCode.parseQuery(clean_query);
+  let ast = parseResults.ast;
+
+  // First check if everything exists as expected.
+  expect(ast.type).toBe('select');
+  expect(ast.columns).not.toBeNull();
+  expect(ast.from).not.toBeNull();
+  expect(ast.where).not.toBeNull();
+  expect(ast.groupby).toBeNull();
+  expect(ast.having).toBeNull();
+  expect(ast.orderby).toBeNull();
+
+  expect(ast).toBe('ast');
+});
+

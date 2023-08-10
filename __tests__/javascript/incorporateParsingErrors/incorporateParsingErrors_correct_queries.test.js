@@ -22,7 +22,9 @@ WHERE c.customerid = o.customerid;
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -38,7 +40,9 @@ ON (c.customerid = o.customerid);
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -60,7 +64,9 @@ AND EXISTS
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -83,7 +89,9 @@ WHERE NOT EXISTS
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -101,7 +109,9 @@ AND c2.customerid = 47;
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -121,7 +131,9 @@ AND onhand =
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -137,7 +149,9 @@ ON (o.customerid = c.customerid);
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
 
 
@@ -152,7 +166,9 @@ GROUP BY productid;
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 
 });
 
@@ -172,5 +188,7 @@ GROUP BY p.productid;
   let parseResults = visCode.parseQuery(clean_query);
   let ast = parseResults.ast;
 
-  expect(parseResults.foundIssues).not.toBeDefined();
+  // When there were no issues, an empty dictionary is returned so that
+  //   no iteration over the "issues" would break.
+  expect(parseResults.foundIssues).toStrictEqual({});
 });
